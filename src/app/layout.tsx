@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
@@ -13,6 +11,7 @@ import {
   getNotificationsForCurrentUser,
   getUnreadNotificationCount,
 } from "@/db/queries";
+import { getLocale } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "CreOps — Content Workflow Platform",
@@ -25,13 +24,15 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [topics, members, currentUser, notifications, unreadCount] = await Promise.all([
-    getAllTopics(),
-    getAllUsers(),
-    getCurrentUser(),
-    getNotificationsForCurrentUser(15),
-    getUnreadNotificationCount(),
-  ]);
+  const [topics, members, currentUser, notifications, unreadCount, locale] =
+    await Promise.all([
+      getAllTopics(),
+      getAllUsers(),
+      getCurrentUser(),
+      getNotificationsForCurrentUser(15),
+      getUnreadNotificationCount(),
+      getLocale(),
+    ]);
   const topicNames = Object.fromEntries(topics.map((t) => [t.id, t.name]));
 
   // Inline script — runs synchronously before first paint to set [data-theme]
@@ -40,8 +41,7 @@ export default async function RootLayout({
 
   return (
     <html
-      lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      lang={locale}
       data-theme="dark"
       suppressHydrationWarning
     >
@@ -58,6 +58,7 @@ export default async function RootLayout({
               unreadCount={unreadCount}
               members={members}
               currentUserId={currentUser.id}
+              locale={locale}
             />
             <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
             <StatusBar topicCount={topics.length} />

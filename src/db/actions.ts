@@ -44,6 +44,23 @@ export async function switchToUser(userId: string | null): Promise<void> {
 }
 
 // ============================================================================
+// Language preference (i18n)
+// ============================================================================
+
+const LOCALE_COOKIE = "creops-lang";
+
+export async function setLanguage(locale: "en" | "vi"): Promise<void> {
+  const c = await cookies();
+  c.set(LOCALE_COOKIE, locale, {
+    httpOnly: false,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365, // 1 year
+  });
+  revalidatePath("/", "layout");
+}
+
+// ============================================================================
 // Task templates — defines what tasks each deliverable type spawns
 // ============================================================================
 

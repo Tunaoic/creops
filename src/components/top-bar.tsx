@@ -5,9 +5,11 @@ import Link from "next/link";
 import { ChevronRight, Search, HelpCircle } from "lucide-react";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LangToggle } from "@/components/lang-toggle";
 import { UserSwitcher } from "@/components/user-switcher";
 import type { NotificationEntry } from "@/db/queries";
 import type { User } from "@/types";
+import type { Locale } from "@/lib/i18n";
 
 export function TopBar({
   topicNames,
@@ -15,13 +17,17 @@ export function TopBar({
   unreadCount,
   members,
   currentUserId,
+  locale,
 }: {
   topicNames: Record<string, string>;
   notifications: NotificationEntry[];
   unreadCount: number;
   members: User[];
   currentUserId: string;
+  locale: Locale;
 }) {
+  const searchLabel = locale === "vi" ? "Tìm kiếm" : "Search";
+  const helpLabel = locale === "vi" ? "Trợ giúp" : "Help";
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
 
@@ -89,18 +95,19 @@ export function TopBar({
           className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-border bg-surface hover:bg-surface-hover hover:border-border-strong transition-colors text-text-muted hover:text-text"
         >
           <Search className="w-3 h-3" strokeWidth={2.25} />
-          <span className="text-[12px] font-medium">Search</span>
+          <span className="text-[12px] font-medium">{searchLabel}</span>
           <kbd>⌘K</kbd>
         </button>
         <NotificationsBell
           notifications={notifications}
           unreadCount={unreadCount}
         />
+        <LangToggle locale={locale} />
         <ThemeToggle />
         <button
           type="button"
           className="p-1.5 rounded-md text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
-          title="Help"
+          title={helpLabel}
         >
           <HelpCircle className="w-3.5 h-3.5" />
         </button>

@@ -19,6 +19,7 @@ import {
 } from "@/db/queries";
 import { DELIVERABLE_TYPE_LABEL } from "@/types";
 import { DeliverableStatusBadge, TaskStatusBadge } from "@/components/status-badge";
+import { getLocale, withLocale, type DictKey } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +27,14 @@ type Bucket = "overdue" | "today" | "tomorrow" | "thisWeek" | "later" | "noDate"
 
 const BUCKET_META: Record<
   Bucket,
-  { label: string; icon: typeof CalendarIcon; color: string }
+  { labelKey: DictKey; icon: typeof CalendarIcon; color: string }
 > = {
-  overdue: { label: "Overdue", icon: Hourglass, color: "text-danger" },
-  today: { label: "Today", icon: CircleDot, color: "text-warn" },
-  tomorrow: { label: "Tomorrow", icon: CalendarIcon, color: "text-accent" },
-  thisWeek: { label: "This Week", icon: CalendarRange, color: "text-info" },
-  later: { label: "Later", icon: CalendarRange, color: "text-text-muted" },
-  noDate: { label: "No Due Date", icon: ListTodo, color: "text-text-subtle" },
+  overdue: { labelKey: "bucket_overdue", icon: Hourglass, color: "text-danger" },
+  today: { labelKey: "bucket_today", icon: CircleDot, color: "text-warn" },
+  tomorrow: { labelKey: "bucket_tomorrow", icon: CalendarIcon, color: "text-accent" },
+  thisWeek: { labelKey: "bucket_this_week", icon: CalendarRange, color: "text-info" },
+  later: { labelKey: "bucket_later", icon: CalendarRange, color: "text-text-muted" },
+  noDate: { labelKey: "bucket_no_date", icon: ListTodo, color: "text-text-subtle" },
 };
 
 const BUCKET_ORDER: Bucket[] = [
@@ -65,6 +66,8 @@ function bucketFor(dueDate: string | undefined, today: string): Bucket {
 
 export default async function InboxPage() {
   const me = await getCurrentUser();
+  const locale = await getLocale();
+  const tr = withLocale(locale);
   const [needReview, inProgress, myTasks, users, settings] = await Promise.all([
     getDeliverablesAwaitingMyReview(me.id),
     getInProgressTopics(me.id),
@@ -121,13 +124,13 @@ export default async function InboxPage() {
     <div className="h-full flex flex-col">
       <div className="border-b border-border bg-surface/40 px-6 py-3">
         <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-text-subtle mb-1">
-          INBOX <span className="text-accent">·</span> {me.name}
+          {locale === "vi" ? "HỘP ĐẾN" : "INBOX"} <span className="text-accent">·</span> {me.name}
         </div>
         <h1 className="text-base font-semibold flex items-center gap-2">
           <Inbox className="w-4 h-4" />
-          Your Queue
+          {tr("inbox_your_queue")}
           <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-surface-elevated text-text-muted">
-            {totalAction} action · {blockedOnOthers.length} waiting
+            {totalAction} {locale === "vi" ? "việc" : "action"} · {blockedOnOthers.length} {locale === "vi" ? "chờ" : "waiting"}
           </span>
         </h1>
       </div>
@@ -137,11 +140,11 @@ export default async function InboxPage() {
         <section>
           <h2 className="text-[12px] font-mono uppercase tracking-[0.2em] text-warn mb-3 flex items-center gap-2">
             <ListTodo className="w-3.5 h-3.5" />
-            MY TASKS · {myTasks.length}
+            {tr("inbox_my_tasks")} · {myTasks.length}
           </h2>
           {myTasks.length === 0 ? (
             <p className="text-[13px] text-text-subtle italic px-3 py-3 bg-surface rounded border border-border">
-              No tasks assigned to you. ✓
+              {tr("inbox_no_tasks")}
             </p>
           ) : (
             <div className="space-y-4">
@@ -161,7 +164,7 @@ export default async function InboxPage() {
                       <span
                         className={`text-[10px] font-mono uppercase tracking-[0.18em] font-semibold ${meta.color}`}
                       >
-                        {meta.label}
+                        {tr(meta.labelKey)}
                       </span>
                       <span className="text-[10px] font-mono text-text-subtle">
                         · {totalInBucket}
@@ -219,7 +222,7 @@ export default async function InboxPage() {
         {blockedOnYou.length > 0 && (
           <section>
             <h2 className="text-[12px] font-mono uppercase tracking-[0.2em] text-warn mb-3">
-              AWAITING YOUR REVIEW · {blockedOnYou.length}
+              {tr("inbox_awaiting_review")} · {blockedOnYou.length}
             </h2>
             <div className="space-y-1.5">
               {blockedOnYou.map(({ topic, deliverable }) => (
@@ -249,11 +252,11 @@ export default async function InboxPage() {
         {/* Waiting on team */}
         <section>
           <h2 className="text-[12px] font-mono uppercase tracking-[0.2em] text-info mb-3">
-            WAITING ON TEAM · {blockedOnOthers.length}
+            {tr("inbox_waiting_team")} · {blockedOnOthers.length}
           </h2>
           {blockedOnOthers.length === 0 ? (
             <p className="text-[13px] text-text-subtle italic px-3 py-3 bg-surface rounded border border-border">
-              No team blockers.
+              {tr("inbox_no_blockers")}
             </p>
           ) : (
             <div className="space-y-1.5">

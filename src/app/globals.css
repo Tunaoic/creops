@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
 /* ============================================================================
-   Cowork themes
+   CreOps themes
    - DARK (default): terminal × Linear × cyberpunk
    - LIGHT: warm paper, soft contrast, same lime accent
-   Font: Geist Sans + Geist Mono (Vercel)
+   Font: Apple system stack (SF Pro on Apple devices, Helvetica/Arial fallback)
+   matches apple.com/vn/ typography
    ============================================================================ */
 
 /* ─── DARK theme (default) ────────────────────────────────────────────────── */
@@ -141,9 +142,14 @@
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
 
-  /* Geist variable fonts (loaded via next/font in layout.tsx) */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  /* Apple system font stack — matches apple.com/vn/.
+     -apple-system + BlinkMacSystemFont resolve to SF Pro on macOS/iOS;
+     "SF Pro Text"/"SF Pro Display" picked up if SF Pro is installed locally;
+     Helvetica Neue → Arial fallback for Windows/Linux. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Helvetica Neue", Helvetica, Arial, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Monaco,
+    "Cascadia Mono", "Roboto Mono", "Courier New", monospace;
 }
 
 /* ============================================================================
@@ -159,16 +165,14 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-weight: 450;
-  font-feature-settings:
-    "ss01" 1, /* alternate single-story g */
-    "ss03" 1, /* zero with slash */
-    "cv11" 1; /* alternate i */
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  letter-spacing: -0.005em;
+  /* Apple's typography uses near-zero tracking; SF Pro is already optically
+     spaced. Slight negative on display sizes only (handled per-heading). */
+  letter-spacing: -0.003em;
 }
 
 /* Strong weight defaults */

@@ -5,30 +5,47 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, FolderOpen, Search, Settings, Plus, LayoutGrid, CalendarDays, Inbox, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, hint: "G D" },
-  { href: "/inbox", label: "Inbox", icon: Inbox, hint: "G I" },
-  { href: "/notifications", label: "Notifications", icon: Bell, hint: "G N" },
-];
-
-const VIEWS = [
-  { href: "/topics", label: "Topics", icon: FolderOpen, hint: "G T" },
-  { href: "/board", label: "Board", icon: LayoutGrid, hint: "G B" },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays, hint: "G C" },
-];
-
-const TOOLS = [
-  { href: "/search", label: "Search", icon: Search, hint: "⌘K" },
-  { href: "/settings", label: "Settings", icon: Settings, hint: "⌘," },
-];
+export interface SidebarLabels {
+  workspace: string;
+  views: string;
+  tools: string;
+  dashboard: string;
+  inbox: string;
+  notifications: string;
+  topics: string;
+  board: string;
+  calendar: string;
+  search: string;
+  settings: string;
+  newTopic: string;
+}
 
 export function SidebarClient({
   userName,
   userEmail,
+  labels,
 }: {
   userName: string;
   userEmail: string;
+  labels: SidebarLabels;
 }) {
+  const NAV_ITEMS = [
+    { href: "/", label: labels.dashboard, icon: LayoutDashboard, hint: "G D" },
+    { href: "/inbox", label: labels.inbox, icon: Inbox, hint: "G I" },
+    { href: "/notifications", label: labels.notifications, icon: Bell, hint: "G N" },
+  ];
+
+  const VIEWS = [
+    { href: "/topics", label: labels.topics, icon: FolderOpen, hint: "G T" },
+    { href: "/board", label: labels.board, icon: LayoutGrid, hint: "G B" },
+    { href: "/calendar", label: labels.calendar, icon: CalendarDays, hint: "G C" },
+  ];
+
+  const TOOLS = [
+    { href: "/search", label: labels.search, icon: Search, hint: "⌘K" },
+    { href: "/settings", label: labels.settings, icon: Settings, hint: "⌘," },
+  ];
+
   const pathname = usePathname();
 
   return (
@@ -57,7 +74,7 @@ export function SidebarClient({
         >
           <span className="flex items-center gap-2">
             <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-            New Topic
+            {labels.newTopic}
           </span>
           <kbd className="text-[11px] font-mono opacity-60">⌘N</kbd>
         </Link>
@@ -65,9 +82,9 @@ export function SidebarClient({
 
       {/* Nav */}
       <nav className="flex-1 px-2 space-y-4 overflow-y-auto">
-        <NavGroup label="Workspace" items={NAV_ITEMS} pathname={pathname} />
-        <NavGroup label="Views" items={VIEWS} pathname={pathname} />
-        <NavGroup label="Tools" items={TOOLS} pathname={pathname} />
+        <NavGroup label={labels.workspace} items={NAV_ITEMS} pathname={pathname} />
+        <NavGroup label={labels.views} items={VIEWS} pathname={pathname} />
+        <NavGroup label={labels.tools} items={TOOLS} pathname={pathname} />
       </nav>
 
       {/* User footer */}
