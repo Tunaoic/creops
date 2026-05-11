@@ -155,69 +155,67 @@
 /* ============================================================================
    GLOBAL TYPOGRAPHY — Apple HIG-flavored
    ----------------------------------------------------------------------------
-   Apple's typography rules of thumb:
-   - Body 17px (default reading size on Apple platforms)
-   - Headings use SemiBold 600 (rare to see Bold 700)
-   - Tighter tracking on display sizes (-0.022em ~ -0.03em)
-   - Near-zero tracking on body
-   - Sentence case for UI labels (no UPPERCASE TRACKING WIDER MONO)
-   - SF Pro is optically spaced; let size + weight do the work, not tricks
+   IMPORTANT: wrapped in @layer base so Tailwind utility classes
+   (text-[11px], text-xs, etc.) — which v4 emits as zero-specificity
+   :where() rules — can still override these defaults at call sites.
    ============================================================================ */
 
-html {
-  font-size: 17px;
-}
+@layer base {
+  html {
+    font-size: 17px;
+  }
 
-html,
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-weight: 400;
-  line-height: 1.47059;
-  font-variant-numeric: tabular-nums;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  letter-spacing: -0.022em;
-}
+  html,
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.47059;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.022em;
+  }
 
-strong,
-b {
-  font-weight: 600;
-}
+  strong,
+  b {
+    font-weight: 600;
+  }
 
-/* Apple's heading scale — size carries hierarchy, weight stays SemiBold
-   except for true display sizes. Tracking tightens as size grows. */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  line-height: 1.0834933333;
-  letter-spacing: -0.022em;
-}
+  /* Apple's heading scale — size carries hierarchy, weight stays SemiBold
+     except for true display sizes. Tracking tightens as size grows. */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.0834933333;
+    letter-spacing: -0.022em;
+  }
 
-h1 {
-  font-size: 2.4rem;          /* ~40.8px */
-  font-weight: 600;
-  letter-spacing: -0.033em;
-  line-height: 1.0625;
-}
+  h1 {
+    font-size: 2.4rem;          /* ~40.8px */
+    font-weight: 600;
+    letter-spacing: -0.033em;
+    line-height: 1.0625;
+  }
 
-h2 {
-  font-size: 1.8rem;          /* ~30.6px */
-  letter-spacing: -0.028em;
-  line-height: 1.125;
-}
+  h2 {
+    font-size: 1.8rem;          /* ~30.6px */
+    letter-spacing: -0.028em;
+    line-height: 1.125;
+  }
 
-h3 {
-  font-size: 1.4rem;          /* ~23.8px */
-  letter-spacing: -0.024em;
-  line-height: 1.1666666667;
-}
+  h3 {
+    font-size: 1.4rem;          /* ~23.8px */
+    letter-spacing: -0.024em;
+    line-height: 1.1666666667;
+  }
 
-h4 {
-  font-size: 1.15rem;         /* ~19.5px */
-  letter-spacing: -0.022em;
-  line-height: 1.2;
+  h4 {
+    font-size: 1.15rem;         /* ~19.5px */
+    letter-spacing: -0.022em;
+    line-height: 1.2;
+  }
 }
 
 /* Apple text-style helpers — use these instead of inline font tricks.
