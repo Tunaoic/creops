@@ -51,23 +51,21 @@ export function UserSwitcher({
         onClick={() => setOpen((o) => !o)}
         disabled={pending || members.length === 0}
         className={cn(
-          "inline-flex items-center gap-2 px-2 py-1 rounded-md border border-border bg-surface hover:border-border-strong text-text-muted hover:text-text transition-colors text-[12px]",
-          open && "border-accent text-text",
+          "inline-flex items-center gap-2 pl-2.5 pr-2 py-1.5 rounded-full border border-border bg-surface hover:bg-surface-hover transition-colors text-[13px]",
+          open && "border-accent",
           members.length === 0 && "opacity-40 cursor-not-allowed"
         )}
         title="Switch user (impersonation)"
       >
-        <UserCog className="w-3 h-3 text-warn" />
-        <span className="font-mono uppercase tracking-wider text-[10px] text-text-subtle">
-          AS
-        </span>
-        <span className="font-medium">
+        <UserCog className="w-3.5 h-3.5 text-warn" />
+        <span className="text-text-subtle">As</span>
+        <span className="font-medium text-text">
           {current?.name ?? "no member"}
         </span>
         {pending ? (
-          <Loader2 className="w-3 h-3 animate-spin" />
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-text-muted" />
         ) : (
-          <ChevronDown className="w-3 h-3 text-text-subtle" />
+          <ChevronDown className="w-3.5 h-3.5 text-text-subtle" />
         )}
       </button>
 

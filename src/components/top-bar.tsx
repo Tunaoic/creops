@@ -54,27 +54,29 @@ export function TopBar({
     crumbs.push({ label, href: acc });
   }
 
+  const homeLabel = locale === "vi" ? "Trang chủ" : "Home";
+
   return (
-    <header className="sticky top-0 z-30 h-11 border-b border-border bg-bg/85 backdrop-blur-md flex items-center gap-2 px-4 text-[13px]">
-      {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1 flex-1 min-w-0 font-mono font-medium text-text-subtle">
+    <header className="sticky top-0 z-30 h-13 border-b border-border bg-bg/85 backdrop-blur-md flex items-center gap-3 px-5 py-2">
+      {/* Breadcrumbs — sans-serif, gentle */}
+      <nav className="flex items-center gap-1.5 flex-1 min-w-0 text-[14px] text-text-muted">
         <Link
           href="/"
-          className="hover:text-accent transition-colors text-accent/70 font-semibold"
+          className="hover:text-text transition-colors"
         >
-          ~
+          {homeLabel}
         </Link>
         {crumbs.map((c, i) => (
-          <span key={c.href} className="flex items-center gap-1">
-            <ChevronRight className="w-3 h-3 text-text-subtle/50" strokeWidth={2.5} />
+          <span key={c.href} className="flex items-center gap-1.5">
+            <ChevronRight className="w-3.5 h-3.5 text-text-subtle" strokeWidth={2} />
             {i === crumbs.length - 1 ? (
-              <span className="text-text font-semibold truncate max-w-[200px]">
+              <span className="text-text font-medium truncate max-w-[260px]">
                 {c.label}
               </span>
             ) : (
               <Link
                 href={c.href}
-                className="hover:text-text transition-colors truncate max-w-[160px]"
+                className="hover:text-text transition-colors truncate max-w-[180px]"
               >
                 {c.label}
               </Link>
@@ -84,7 +86,7 @@ export function TopBar({
       </nav>
 
       {/* Right cluster */}
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <UserSwitcher members={members} currentUserId={currentUserId} />
         <button
           type="button"
@@ -92,10 +94,10 @@ export function TopBar({
             const e = new KeyboardEvent("keydown", { key: "k", metaKey: true });
             window.dispatchEvent(e);
           }}
-          className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-border bg-surface hover:bg-surface-hover hover:border-border-strong transition-colors text-text-muted hover:text-text"
+          className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full bg-surface hover:bg-surface-hover transition-colors text-text-muted hover:text-text border border-border"
         >
-          <Search className="w-3 h-3" strokeWidth={2.25} />
-          <span className="text-[12px] font-medium">{searchLabel}</span>
+          <Search className="w-3.5 h-3.5" strokeWidth={2} />
+          <span className="text-[13px]">{searchLabel}</span>
           <kbd>⌘K</kbd>
         </button>
         <NotificationsBell
@@ -106,10 +108,10 @@ export function TopBar({
         <ThemeToggle />
         <button
           type="button"
-          className="p-1.5 rounded-md text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
+          className="p-2 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
           title={helpLabel}
         >
-          <HelpCircle className="w-3.5 h-3.5" />
+          <HelpCircle className="w-4 h-4" />
         </button>
       </div>
     </header>

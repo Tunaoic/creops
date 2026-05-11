@@ -122,32 +122,34 @@ export default async function InboxPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="border-b border-border bg-surface/40 px-6 py-3">
-        <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-text-subtle mb-1">
-          {locale === "vi" ? "HỘP ĐẾN" : "INBOX"} <span className="text-accent">·</span> {me.name}
-        </div>
-        <h1 className="text-base font-semibold flex items-center gap-2">
-          <Inbox className="w-4 h-4" />
+      <div className="border-b border-border px-8 pt-7 pb-5">
+        <p className="text-[14px] text-text-muted mb-1">
+          {me.name}
+        </p>
+        <h1 className="text-title-2 text-text mb-1">
           {tr("inbox_your_queue")}
-          <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-surface-elevated text-text-muted">
-            {totalAction} {locale === "vi" ? "việc" : "action"} · {blockedOnOthers.length} {locale === "vi" ? "chờ" : "waiting"}
-          </span>
         </h1>
+        <p className="text-[14px] text-text-muted">
+          {totalAction} {locale === "vi" ? "việc cần làm" : totalAction === 1 ? "action" : "actions"}
+          {" · "}
+          {blockedOnOthers.length} {locale === "vi" ? "đang chờ" : "waiting"}
+        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 max-w-3xl mx-auto w-full space-y-6">
+      <div className="flex-1 overflow-y-auto px-8 py-6 max-w-3xl mx-auto w-full space-y-8">
         {/* MY TASKS — bucketed by date */}
         <section>
-          <h2 className="text-[12px] font-mono uppercase tracking-[0.2em] text-warn mb-3 flex items-center gap-2">
-            <ListTodo className="w-3.5 h-3.5" />
-            {tr("inbox_my_tasks")} · {myTasks.length}
+          <h2 className="text-headline text-text mb-4 flex items-center gap-2">
+            <ListTodo className="w-4 h-4 text-text-muted" strokeWidth={1.75} />
+            {tr("inbox_my_tasks")}
+            <span className="text-text-subtle font-normal tabular-nums">{myTasks.length}</span>
           </h2>
           {myTasks.length === 0 ? (
-            <p className="text-[13px] text-text-subtle italic px-3 py-3 bg-surface rounded border border-border">
+            <p className="text-[15px] text-text-subtle px-4 py-4 bg-surface rounded-2xl border border-border">
               {tr("inbox_no_tasks")}
             </p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {BUCKET_ORDER.map((b) => {
                 const groupMap = buckets[b];
                 if (groupMap.size === 0) return null;
@@ -159,32 +161,31 @@ export default async function InboxPage() {
                 );
                 return (
                   <div key={b}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Icon className={`w-3 h-3 ${meta.color}`} />
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <Icon className={`w-3.5 h-3.5 ${meta.color}`} strokeWidth={1.75} />
                       <span
-                        className={`text-[10px] font-mono uppercase tracking-[0.18em] font-semibold ${meta.color}`}
+                        className={`text-[14px] font-medium ${meta.color}`}
                       >
                         {tr(meta.labelKey)}
                       </span>
-                      <span className="text-[10px] font-mono text-text-subtle">
-                        · {totalInBucket}
+                      <span className="text-[13px] text-text-subtle tabular-nums">
+                        {totalInBucket}
                       </span>
-                      <div className="flex-1 h-px bg-border" />
+                      <div className="flex-1 h-px bg-border ml-1" />
                     </div>
                     <div className="space-y-3">
                       {Array.from(groupMap.values()).map((group) => (
                         <div
                           key={group.topicId}
-                          className="rounded border border-border overflow-hidden bg-surface/60"
+                          className="rounded-2xl border border-border overflow-hidden bg-surface"
                         >
                           <Link
                             href={`/topics/${group.topicId}`}
-                            className="block px-3 py-1.5 bg-bg/40 border-b border-border text-[11px] font-mono uppercase tracking-wider text-text-muted hover:text-text"
+                            className="block px-4 py-2.5 border-b border-border text-[13px] text-text-muted hover:text-text bg-surface-hover/40"
                           >
-                            <span className="text-text-subtle">@ </span>
-                            {group.topicName}
-                            <span className="text-text-subtle ml-1.5">
-                              · {group.tasks.length} task{group.tasks.length !== 1 && "s"}
+                            <span className="font-medium text-text">{group.topicName}</span>
+                            <span className="text-text-subtle ml-2">
+                              · {group.tasks.length} {locale === "vi" ? "task" : group.tasks.length === 1 ? "task" : "tasks"}
                             </span>
                           </Link>
                           <div className="divide-y divide-border">
@@ -221,27 +222,29 @@ export default async function InboxPage() {
         {/* Awaiting your review (creator only) */}
         {blockedOnYou.length > 0 && (
           <section>
-            <h2 className="text-[12px] font-mono uppercase tracking-[0.2em] text-warn mb-3">
-              {tr("inbox_awaiting_review")} · {blockedOnYou.length}
+            <h2 className="text-headline text-text mb-4">
+              {tr("inbox_awaiting_review")}
+              <span className="text-text-subtle font-normal tabular-nums ml-2">{blockedOnYou.length}</span>
             </h2>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {blockedOnYou.map(({ topic, deliverable }) => (
                 <Link
                   key={deliverable.id}
                   href={`/topics/${topic.id}/approve/${deliverable.id}`}
-                  className="block bg-surface rounded border border-warn-border hover:bg-surface-hover transition-colors px-3 py-2.5 group"
+                  className="block bg-surface rounded-2xl border border-warn-border/60 hover:bg-surface-hover transition-colors px-4 py-3 group"
                 >
                   <div className="flex items-center gap-3">
                     <DeliverableStatusBadge status={deliverable.status} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-[14px] font-medium truncate">
+                      <div className="text-[15px] font-medium truncate text-text">
                         {topic.name}
                       </div>
-                      <div className="text-[12px] font-mono text-text-subtle">
-                        {DELIVERABLE_TYPE_LABEL[deliverable.type]} · ready for approval
+                      <div className="text-[13px] text-text-muted">
+                        {DELIVERABLE_TYPE_LABEL[deliverable.type]} ·{" "}
+                        {locale === "vi" ? "sẵn sàng để duyệt" : "ready for approval"}
                       </div>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-text-subtle group-hover:text-accent transition-colors" />
+                    <ArrowRight className="w-4 h-4 text-text-subtle group-hover:text-accent transition-colors" strokeWidth={1.75} />
                   </div>
                 </Link>
               ))}
@@ -251,29 +254,30 @@ export default async function InboxPage() {
 
         {/* Waiting on team */}
         <section>
-          <h2 className="text-[12px] font-mono uppercase tracking-[0.2em] text-info mb-3">
-            {tr("inbox_waiting_team")} · {blockedOnOthers.length}
+          <h2 className="text-headline text-text mb-4">
+            {tr("inbox_waiting_team")}
+            <span className="text-text-subtle font-normal tabular-nums ml-2">{blockedOnOthers.length}</span>
           </h2>
           {blockedOnOthers.length === 0 ? (
-            <p className="text-[13px] text-text-subtle italic px-3 py-3 bg-surface rounded border border-border">
+            <p className="text-[15px] text-text-subtle px-4 py-4 bg-surface rounded-2xl border border-border">
               {tr("inbox_no_blockers")}
             </p>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {blockedOnOthers.map(({ topic, deliverable, block }) => (
                 <Link
                   key={deliverable.id}
                   href={`/topics/${topic.id}`}
-                  className="block bg-surface rounded border border-border hover:border-border-strong px-3 py-2.5 transition-colors"
+                  className="block bg-surface rounded-2xl border border-border hover:bg-surface-hover px-4 py-3 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-3 mb-0.5">
-                    <span className="text-[14px] font-medium truncate">
+                    <span className="text-[15px] font-medium truncate text-text">
                       {topic.name}
                     </span>
                     <DeliverableStatusBadge status={deliverable.status} />
                   </div>
-                  <div className="text-[12px] font-mono text-text-subtle">
-                    {DELIVERABLE_TYPE_LABEL[deliverable.type]} · ⊙ {block}
+                  <div className="text-[13px] text-text-muted">
+                    {DELIVERABLE_TYPE_LABEL[deliverable.type]} · {block}
                   </div>
                 </Link>
               ))}

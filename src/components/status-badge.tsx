@@ -1,92 +1,105 @@
 import { cn } from "@/lib/utils";
 import type { DeliverableStatus, TopicStatus, TaskStatus } from "@/types";
 
+/**
+ * Status badges — Apple HIG style:
+ * - rounded-full pill (signature Apple shape)
+ * - sentence case (no UPPERCASE TRACKING)
+ * - sans-serif (no font-mono)
+ * - colored fill, no heavy border
+ * - tinted bg with stronger fg, mirrors macOS system labels
+ */
+
+const PILL_BASE =
+  "inline-flex items-center px-2.5 py-0.5 text-[12px] font-medium rounded-full leading-tight";
+
+// ----------------------------------------------------------------------------
+// TaskStatus
+// ----------------------------------------------------------------------------
+
 const TASK_STYLES: Record<TaskStatus, string> = {
-  todo: "bg-surface-elevated text-text-muted border-border-strong",
-  in_progress: "bg-info-bg text-info border-info/30",
-  submitted: "bg-warn-bg text-warn-text border-warn-border",
-  approved: "bg-success-bg text-success border-success/30",
-  rejected: "bg-danger-bg text-danger border-danger/30",
+  todo: "bg-surface-elevated text-text-muted",
+  in_progress: "bg-info-bg text-info",
+  submitted: "bg-warn-bg text-warn",
+  approved: "bg-success-bg text-success",
+  rejected: "bg-danger-bg text-danger",
 };
 
 const TASK_LABELS: Record<TaskStatus, string> = {
-  todo: "TO DO",
-  in_progress: "DOING",
-  submitted: "REVIEW",
-  approved: "DONE",
-  rejected: "REDO",
+  todo: "To do",
+  in_progress: "In progress",
+  submitted: "In review",
+  approved: "Done",
+  rejected: "Needs changes",
 };
 
 export function TaskStatusBadge({ status }: { status: TaskStatus }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-1.5 py-0.5 text-[11px] font-mono font-medium rounded border tracking-wider",
-        TASK_STYLES[status]
-      )}
-    >
+    <span className={cn(PILL_BASE, TASK_STYLES[status])}>
       {TASK_LABELS[status]}
     </span>
   );
 }
 
+// ----------------------------------------------------------------------------
+// DeliverableStatus
+// ----------------------------------------------------------------------------
+
 const DELIVERABLE_STYLES: Record<DeliverableStatus, string> = {
-  draft: "bg-surface-elevated text-text-muted border-border-strong",
-  in_progress: "bg-info-bg text-info border-info/30",
-  review: "bg-warn-bg text-warn-text border-warn-border",
-  approved: "bg-success-bg text-success border-success/30",
-  aired: "bg-accent/10 text-accent border-accent/30",
+  draft: "bg-surface-elevated text-text-muted",
+  in_progress: "bg-info-bg text-info",
+  review: "bg-warn-bg text-warn",
+  approved: "bg-success-bg text-success",
+  aired: "bg-accent/15 text-accent",
 };
 
 const DELIVERABLE_LABELS: Record<DeliverableStatus, string> = {
-  draft: "DRAFT",
-  in_progress: "IN PROGRESS",
-  review: "REVIEW",
-  approved: "APPROVED",
-  aired: "AIRED",
-};
-
-const TOPIC_STYLES: Record<TopicStatus, string> = {
-  draft: "bg-surface-elevated text-text-muted border-border-strong",
-  in_production: "bg-info-bg text-info border-info/30",
-  partially_aired: "bg-warn-bg text-warn-text border-warn-border",
-  fully_aired: "bg-accent/10 text-accent border-accent/30",
-  archived: "bg-surface-elevated text-text-subtle border-border-strong",
-};
-
-const TOPIC_LABELS: Record<TopicStatus, string> = {
-  draft: "DRAFT",
-  in_production: "IN PRODUCTION",
-  partially_aired: "PARTIAL",
-  fully_aired: "AIRED",
-  archived: "ARCHIVED",
+  draft: "Draft",
+  in_progress: "In progress",
+  review: "In review",
+  approved: "Approved",
+  aired: "Aired",
 };
 
 export function DeliverableStatusBadge({ status }: { status: DeliverableStatus }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-1.5 py-0.5 text-[11px] font-mono font-medium rounded border tracking-wider",
-        DELIVERABLE_STYLES[status]
-      )}
-    >
+    <span className={cn(PILL_BASE, DELIVERABLE_STYLES[status])}>
       {DELIVERABLE_LABELS[status]}
     </span>
   );
 }
 
+// ----------------------------------------------------------------------------
+// TopicStatus
+// ----------------------------------------------------------------------------
+
+const TOPIC_STYLES: Record<TopicStatus, string> = {
+  draft: "bg-surface-elevated text-text-muted",
+  in_production: "bg-info-bg text-info",
+  partially_aired: "bg-warn-bg text-warn",
+  fully_aired: "bg-accent/15 text-accent",
+  archived: "bg-surface-elevated text-text-subtle",
+};
+
+const TOPIC_LABELS: Record<TopicStatus, string> = {
+  draft: "Draft",
+  in_production: "In production",
+  partially_aired: "Partial",
+  fully_aired: "Aired",
+  archived: "Archived",
+};
+
 export function TopicStatusBadge({ status }: { status: TopicStatus }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-1.5 py-0.5 text-[11px] font-mono font-medium rounded border tracking-wider",
-        TOPIC_STYLES[status]
-      )}
-    >
+    <span className={cn(PILL_BASE, TOPIC_STYLES[status])}>
       {TOPIC_LABELS[status]}
     </span>
   );
 }
+
+// ----------------------------------------------------------------------------
+// ProgressDots — kept, but lightweight (no glow shadow)
+// ----------------------------------------------------------------------------
 
 export function ProgressDots({ total, done }: { total: number; done: number }) {
   return (
@@ -96,7 +109,7 @@ export function ProgressDots({ total, done }: { total: number; done: number }) {
           key={i}
           className={cn(
             "w-1.5 h-1.5 rounded-full transition-colors",
-            i < done ? "bg-accent shadow-[0_0_4px_var(--accent)]" : "bg-border-strong"
+            i < done ? "bg-accent" : "bg-border-strong"
           )}
         />
       ))}

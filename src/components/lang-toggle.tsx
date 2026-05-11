@@ -37,20 +37,20 @@ export function LangToggle({ locale }: { locale: Locale }) {
       onClick={toggle}
       disabled={pending}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-border bg-surface",
-        "hover:border-border-strong text-text-muted hover:text-text transition-colors",
-        "text-[11px] font-mono uppercase tracking-wider",
+        "inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full bg-surface border border-border",
+        "hover:bg-surface-hover text-text-muted hover:text-text transition-colors",
+        "text-[12px] font-medium",
         pending && "opacity-60 cursor-wait"
       )}
       title={title}
       aria-label={title}
     >
       {pending ? (
-        <Loader2 className="w-3 h-3 animate-spin" />
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
       ) : (
-        <Languages className="w-3 h-3" />
+        <Languages className="w-3.5 h-3.5" />
       )}
-      <span className="font-semibold">{locale === "en" ? "EN" : "VI"}</span>
+      <span>{locale === "en" ? "English" : "Tiếng Việt"}</span>
     </button>
   );
 }

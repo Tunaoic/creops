@@ -32,10 +32,10 @@ export function ThemeToggle() {
     return (
       <button
         type="button"
-        className="p-1.5 rounded-md text-text-muted opacity-0"
+        className="p-2 rounded-full text-text-muted opacity-0"
         aria-hidden
       >
-        <Moon className="w-3.5 h-3.5" />
+        <Moon className="w-4 h-4" />
       </button>
     );
   }
@@ -44,13 +44,13 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="p-1.5 rounded-md text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
+      className="p-2 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
       title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
     >
       {theme === "dark" ? (
-        <Sun className="w-3.5 h-3.5" />
+        <Sun className="w-4 h-4" />
       ) : (
-        <Moon className="w-3.5 h-3.5" />
+        <Moon className="w-4 h-4" />
       )}
     </button>
   );

@@ -84,66 +84,74 @@ export default async function DashboardPage() {
 
   return (
     <div className="px-6 py-4 max-w-[1280px] mx-auto">
-      {/* Onboarding for fresh workspace */}
+      {/* Onboarding for fresh workspace — Apple welcome card */}
       {isEmptyWorkspace && (
-        <div className="mb-4 rounded-lg border border-accent/40 bg-accent/5 px-5 py-4">
-          <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.2em] text-accent mb-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_6px_var(--accent)] pulse-dot" />
-            WELCOME · SETUP
+        <div className="mb-6 rounded-2xl border border-accent/30 bg-accent/5 px-6 py-5">
+          <div className="flex items-center gap-2 text-[13px] text-accent mb-2 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
+            {locale === "vi" ? "Chào mừng" : "Welcome"}
           </div>
-          <h2 className="text-xl font-semibold tracking-tight mb-1">
-            Workspace mới — bắt đầu setup team
+          <h2 className="text-title-3 text-text mb-1.5">
+            {locale === "vi"
+              ? "Workspace mới — thiết lập team"
+              : "Fresh workspace — set up your team"}
           </h2>
-          <p className="text-[13px] text-text-muted mb-4">
-            Add team members trước → app sẽ auto-assign tasks theo role khi mày tạo topic.
+          <p className="text-[15px] text-text-muted mb-5 max-w-xl">
+            {locale === "vi"
+              ? "Thêm thành viên trước để có thể assign task khi tạo chủ đề."
+              : "Add team members first so you can assign tasks when you create topics."}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Link
               href="/settings/members"
-              className="btn-primary inline-flex items-center gap-1.5 px-3 py-2 rounded text-[13px]"
+              className="btn-primary inline-flex items-center gap-2 text-[14px]"
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-              Add Team Members
+              <Plus className="w-4 h-4" strokeWidth={2} />
+              {locale === "vi" ? "Thêm thành viên" : "Add team members"}
             </Link>
             <Link
               href="/topics/new"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded border border-border bg-surface hover:border-border-strong text-[13px] text-text-muted hover:text-text"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-surface hover:bg-surface-hover text-[14px] text-text-muted hover:text-text transition-colors"
             >
-              Skip — create topic first
+              {locale === "vi" ? "Bỏ qua — tạo chủ đề" : "Skip — create a topic"}
             </Link>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      {/* Hero header — Apple style: large H1, subtle date subline, generous spacing */}
+      <div className="flex items-end justify-between gap-6 mb-8 pt-2">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[13px] font-mono uppercase tracking-[0.2em] text-accent">
-              ↑ {user.name.toUpperCase()} · {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-            </span>
-            <span className="w-1 h-1 rounded-full bg-accent shadow-[0_0_4px_var(--accent)] animate-pulse" />
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">{tr("mission_control")}</h1>
+          <p className="text-[15px] text-text-muted mb-2">
+            {(() => {
+              const dateLabel = new Date().toLocaleDateString(
+                locale === "vi" ? "vi-VN" : "en-US",
+                { weekday: "long", day: "numeric", month: "long" }
+              );
+              const greet = locale === "vi" ? "Xin chào" : "Hi";
+              return `${greet}, ${user.name} · ${dateLabel}`;
+            })()}
+          </p>
+          <h1 className="text-title-1 text-text">{tr("mission_control")}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 pb-1">
           <Link
             href="/inbox"
-            className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-md border border-border bg-surface hover:border-border-strong text-[13px] text-text-muted hover:text-text"
+            className="inline-flex items-center gap-2 pl-3.5 pr-3 py-2 rounded-full border border-border bg-surface hover:bg-surface-hover text-[14px] text-text-muted hover:text-text transition-colors"
           >
-            <Inbox className="w-3.5 h-3.5" />
+            <Inbox className="w-4 h-4" strokeWidth={1.75} />
             {tr("nav_inbox")}
             {myTasks.length + needReview.length > 0 && (
-              <span className="text-[11px] font-mono px-1 py-0.5 rounded bg-warn-bg text-warn border border-warn-border">
+              <span className="text-[12px] font-medium px-1.5 py-0.5 rounded-full bg-warn-bg text-warn">
                 {myTasks.length + needReview.length}
               </span>
             )}
           </Link>
           <Link
             href="/topics/new"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-accent text-accent-fg text-[13px] font-semibold hover:bg-accent-hover hover:shadow-[0_0_0_3px_var(--accent-glow)]"
+            className="inline-flex items-center gap-2 pl-3.5 pr-4 py-2 rounded-full bg-accent text-accent-fg text-[14px] font-medium transition-opacity hover:opacity-88"
           >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+            <Plus className="w-4 h-4" strokeWidth={2} />
             {tr("new_topic")}
           </Link>
         </div>
@@ -416,43 +424,48 @@ function KpiCard({
     info: "text-info",
   };
   const dc = colorMap[deltaColor] ?? deltaColor;
+  // Sentence case label — mirror Apple's "Mail · Inbox" style not "INBOX · MAIL"
+  const labelTitleCase = label
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/(\d)d\b/i, "$1d"); // keep "7d" lowercase
   return (
     <div
       className={cn(
-        "rounded-lg border bg-surface p-3 transition-colors hover:border-border-strong",
+        "rounded-2xl border bg-surface p-5 transition-colors hover:bg-surface-hover",
         accent && "border-accent/30"
       )}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[13px] font-mono uppercase tracking-[0.15em] text-text-subtle">
-          {label}
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[13px] text-text-muted">
+          {labelTitleCase}
         </span>
         <span className={cn("text-text-subtle", accent && "text-accent")}>
           {icon}
         </span>
       </div>
       <div className="flex items-baseline gap-2">
-        <span className={cn("text-2xl font-semibold tabular-nums", accent && "text-accent")}>
+        <span className={cn("text-[34px] font-semibold tabular-nums tracking-tight leading-none", accent && "text-accent")}>
           {value}
         </span>
         {deltaSuffix && (
-          <span className="text-[13px] text-text-subtle font-mono">{deltaSuffix}</span>
+          <span className="text-[14px] text-text-subtle">{deltaSuffix}</span>
         )}
       </div>
       {delta && (
-        <div className={cn("text-[13px] font-mono mt-1", dc)}>{delta}</div>
+        <div className={cn("text-[13px] mt-2", dc)}>{delta}</div>
       )}
     </div>
   );
 }
 
 function Section({
-  num,
+  num: _num,
   label,
   count,
   cta,
   children,
-  accent = "text-muted",
+  accent: _accent = "text-muted",
 }: {
   num: string;
   label: string;
@@ -461,30 +474,19 @@ function Section({
   children: React.ReactNode;
   accent?: "warn" | "info" | "accent" | "text-muted" | string;
 }) {
-  const colorMap: Record<string, string> = {
-    warn: "text-warn",
-    info: "text-info",
-    accent: "text-accent",
-    "text-muted": "text-text-muted",
-  };
-  const c = colorMap[accent] ?? accent;
   return (
-    <section className="rounded-lg border border-border bg-surface/40 overflow-hidden">
-      <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-bg/40">
-        <div className="flex items-center gap-2 font-mono text-[13px] uppercase tracking-[0.15em]">
-          <span className="text-text-subtle">{num}</span>
-          <span className={c}>·</span>
-          <span className={cn("font-semibold", c)}>{label}</span>
+    <section className="rounded-2xl border border-border bg-surface overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[17px] font-semibold text-text">{label}</span>
           {count !== undefined && (
-            <span className="px-1 rounded bg-surface-elevated text-text-subtle border border-border">
-              {count}
-            </span>
+            <span className="text-[14px] text-text-subtle tabular-nums">{count}</span>
           )}
         </div>
         {cta && (
           <Link
             href={cta.href}
-            className="text-[13px] font-mono text-text-subtle hover:text-accent"
+            className="text-[14px] text-accent hover:opacity-80 transition-opacity"
           >
             {cta.label}
           </Link>
