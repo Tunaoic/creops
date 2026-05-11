@@ -116,7 +116,7 @@ function mapDeliverableChannel(
 export async function getCurrentUser(): Promise<User> {
   const id = await getCurrentUserIdAsync();
   if (id) {
-    const row = db.select().from(schema.users).where(eq(schema.users.id, id)).get();
+    const row = await db.select().from(schema.users).where(eq(schema.users.id, id)).get();
     if (row) return mapUser(row);
   }
   // Workspace has zero users — placeholder so UI doesn't crash
@@ -130,22 +130,22 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 export async function getAllUsers(): Promise<User[]> {
-  const rows = db.select().from(schema.users).all();
+  const rows = await db.select().from(schema.users).all();
   return rows.map(mapUser);
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  const row = db.select().from(schema.users).where(eq(schema.users.id, id)).get();
+  const row = await db.select().from(schema.users).where(eq(schema.users.id, id)).get();
   return row ? mapUser(row) : null;
 }
 
 export async function getAllChannels(): Promise<Channel[]> {
-  const rows = db.select().from(schema.channels).all();
+  const rows = await db.select().from(schema.channels).all();
   return rows.map(mapChannel);
 }
 
 export async function getChannelById(id: string): Promise<Channel | null> {
-  const row = db
+  const row = await db
     .select()
     .from(schema.channels)
     .where(eq(schema.channels.id, id))
@@ -156,13 +156,13 @@ export async function getChannelById(id: string): Promise<Channel | null> {
 async function loadTopicWithChildren(
   topicRow: typeof schema.topics.$inferSelect
 ): Promise<Topic> {
-  const assetRows = db
+  const assetRows = await db
     .select()
     .from(schema.sourceAssets)
     .where(eq(schema.sourceAssets.topicId, topicRow.id))
     .all();
 
-  const deliverableRows = db
+  const deliverableRows = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.topicId, topicRow.id))
@@ -171,7 +171,7 @@ async function loadTopicWithChildren(
   const deliverableIds = deliverableRows.map((d) => d.id);
 
   const channelRows = deliverableIds.length
-    ? db
+    ? await db
         .select()
         .from(schema.deliverableChannels)
         .where(inArray(schema.deliverableChannels.deliverableId, deliverableIds))
@@ -179,7 +179,7 @@ async function loadTopicWithChildren(
     : [];
 
   const taskRows = deliverableIds.length
-    ? db
+    ? await db
         .select()
         .from(schema.tasks)
         .where(inArray(schema.tasks.deliverableId, deliverableIds))
@@ -216,7 +216,7 @@ async function loadTopicWithChildren(
 }
 
 export async function getAllTopics(): Promise<Topic[]> {
-  const rows = db
+  const rows = await db
     .select()
     .from(schema.topics)
     .where(eq(schema.topics.workspaceId, WORKSPACE_ID))
@@ -226,7 +226,7 @@ export async function getAllTopics(): Promise<Topic[]> {
 }
 
 export async function getTopicById(id: string): Promise<Topic | null> {
-  const row = db
+  const row = await db
     .select()
     .from(schema.topics)
     .where(eq(schema.topics.id, id))
@@ -353,7 +353,7 @@ export function getBlockReason(
 // ----------------------------------------------------------------------------
 
 export async function getWorkspaceSettings() {
-  const row = db
+  const row = await db
     .select()
     .from(schema.workspaceSettings)
     .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
@@ -397,7 +397,7 @@ export async function getNotificationsForCurrentUser(
 ): Promise<NotificationEntry[]> {
   const actorId = await resolveCurrentActorId();
   if (!actorId) return [];
-  const rows = db
+  const rows = await db
     .select()
     .from(schema.notifications)
     .where(eq(schema.notifications.userId, actorId))
@@ -410,7 +410,7 @@ export async function getNotificationsForCurrentUser(
     new Set(rows.map((r) => r.topicId).filter((x): x is string => Boolean(x)))
   );
   const topics = topicIds.length
-    ? db
+    ? await db
         .select()
         .from(schema.topics)
         .where(inArray(schema.topics.id, topicIds))
@@ -433,7 +433,7 @@ export async function getNotificationsForCurrentUser(
     )
   );
   const actors = actorIds.length
-    ? db
+    ? await db
         .select()
         .from(schema.users)
         .where(inArray(schema.users.id, actorIds))
@@ -463,7 +463,7 @@ export async function getNotificationsForCurrentUser(
 export async function getUnreadNotificationCount(): Promise<number> {
   const actorId = await resolveCurrentActorId();
   if (!actorId) return 0;
-  const row = db
+  const row = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.notifications)
     .where(
@@ -499,7 +499,7 @@ export async function getActivityForTopic(
   // - its deliverables
   // - its tasks
   // - its deliverable_channels
-  const deliverables = db
+  const deliverables = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.topicId, topicId))
@@ -507,7 +507,7 @@ export async function getActivityForTopic(
   const deliverableIds = deliverables.map((d) => d.id);
 
   const tasks = deliverableIds.length
-    ? db
+    ? await db
         .select()
         .from(schema.tasks)
         .where(inArray(schema.tasks.deliverableId, deliverableIds))
@@ -516,7 +516,7 @@ export async function getActivityForTopic(
   const taskIds = tasks.map((t) => t.id);
 
   const channels = deliverableIds.length
-    ? db
+    ? await db
         .select()
         .from(schema.deliverableChannels)
         .where(inArray(schema.deliverableChannels.deliverableId, deliverableIds))
@@ -528,7 +528,7 @@ export async function getActivityForTopic(
   const allTargetIds = [topicId, ...deliverableIds, ...taskIds, ...channelIds];
   if (allTargetIds.length === 0) return [];
 
-  const rows = db
+  const rows = await db
     .select()
     .from(schema.activityLog)
     .where(inArray(schema.activityLog.targetId, allTargetIds))
@@ -565,7 +565,7 @@ export async function getCommentsForTarget(
   targetType: "topic" | "deliverable" | "task" | "asset",
   targetId: string
 ): Promise<Comment[]> {
-  const rows = db
+  const rows = await db
     .select()
     .from(schema.comments)
     .where(
@@ -700,7 +700,7 @@ export async function getCutSuggestions(deliverableId: string) {
 export async function getRegensToday(deliverableId: string): Promise<number> {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
-  const rows = db
+  const rows = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.aiCutRegenLog)
     .where(

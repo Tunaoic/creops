@@ -18,17 +18,13 @@ const COOKIE_KEY = "cowork-as-user";
  *    1. Read `cowork-as-user` impersonation cookie (set by UserSwitcher)
  *    2. Fall back to first user in workspace
  *    3. Return null if workspace has 0 users
- *
- * The dev fallback is what the prototype always used. Once you set
- * Clerk keys + deploy, it auto-switches to real auth.
  */
 export async function getCurrentUserIdAsync(): Promise<string | null> {
   if (await isClerkEnabled()) {
-    // Real auth via Clerk
     const { auth } = await import("@clerk/nextjs/server");
     const session = await auth();
     if (!session.userId) return null;
-    const u = db
+    const u = await db
       .select({ id: schema.users.id })
       .from(schema.users)
       .where(eq(schema.users.clerkUserId, session.userId))
@@ -36,19 +32,17 @@ export async function getCurrentUserIdAsync(): Promise<string | null> {
     return u?.id ?? null;
   }
 
-  // Dev mode — impersonation cookie
   const c = await cookies();
   const stored = c.get(COOKIE_KEY)?.value;
   if (stored) {
-    const u = db
+    const u = await db
       .select({ id: schema.users.id })
       .from(schema.users)
       .where(eq(schema.users.id, stored))
       .get();
     if (u) return u.id;
   }
-  // Fallback: first user in workspace
-  const any = db
+  const any = await db
     .select({ id: schema.users.id })
     .from(schema.users)
     .limit(1)
@@ -58,10 +52,11 @@ export async function getCurrentUserIdAsync(): Promise<string | null> {
 
 /**
  * Sync fallback — used in narrow contexts. Returns first user in DB.
- * In production with Clerk, prefer the async version.
+ * libsql is async-only, so this is now actually async too despite the
+ * legacy name. Kept for callsite compatibility.
  */
-export function getCurrentUserIdSync(): string | null {
-  const any = db
+export async function getCurrentUserIdSync(): Promise<string | null> {
+  const any = await db
     .select({ id: schema.users.id })
     .from(schema.users)
     .limit(1)

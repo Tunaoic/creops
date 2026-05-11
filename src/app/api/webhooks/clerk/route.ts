@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       break;
     case "user.deleted":
       // Soft-handle — onDelete:set null on FKs keeps data, just nukes user row
-      db.delete(schema.users).where(eq(schema.users.clerkUserId, evt.data.id)).run();
+      await db.delete(schema.users).where(eq(schema.users.clerkUserId, evt.data.id)).run();
       break;
   }
 
@@ -75,8 +75,7 @@ export async function POST(req: Request) {
 }
 
 async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
-  // Skip if already provisioned (Clerk can fire user.created twice)
-  const existing = db
+  const existing = await db
     .select({ id: schema.users.id })
     .from(schema.users)
     .where(eq(schema.users.clerkUserId, data.id))
@@ -88,10 +87,8 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
     email.split("@")[0] ||
     "New user";
 
-  // Each new sign-up gets their own workspace. They can rename it on
-  // /onboarding. Multi-workspace per user is a Round 2 feature.
   const workspaceId = `ws_${randomUUID().slice(0, 8)}`;
-  db.insert(schema.workspaces)
+  await db.insert(schema.workspaces)
     .values({
       id: workspaceId,
       name: `${name}'s Workspace`,
@@ -99,8 +96,7 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
     })
     .run();
 
-  // Default workspace settings
-  db.insert(schema.workspaceSettings)
+  await db.insert(schema.workspaceSettings)
     .values({
       workspaceId,
       blockReasonDisplay: "name",
@@ -109,7 +105,6 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
     })
     .run();
 
-  // Default channels (mirror seed script)
   const defaultChannels = [
     { id: `ch_${randomUUID().slice(0, 6)}`, name: "YouTube", platform: "youtube" },
     { id: `ch_${randomUUID().slice(0, 6)}`, name: "TikTok", platform: "tiktok" },
@@ -117,13 +112,12 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
     { id: `ch_${randomUUID().slice(0, 6)}`, name: "Blog", platform: "blog" },
   ];
   for (const c of defaultChannels) {
-    db.insert(schema.channels)
+    await db.insert(schema.channels)
       .values({ id: c.id, workspaceId, name: c.name, platform: c.platform })
       .run();
   }
 
-  // The user — gets creator role by default since they own the workspace
-  db.insert(schema.users)
+  await db.insert(schema.users)
     .values({
       id: `u_${randomUUID().slice(0, 8)}`,
       workspaceId,
@@ -138,19 +132,19 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
 }
 
 async function syncUserProfile(data: ClerkWebhookEvent["data"]) {
-  const u = db
+  const u = await db
     .select()
     .from(schema.users)
     .where(eq(schema.users.clerkUserId, data.id))
     .get();
-  if (!u) return; // not provisioned yet — user.created will handle
+  if (!u) return;
 
   const email = pickEmail(data);
   const name = [data.first_name, data.last_name].filter(Boolean).join(" ") ||
     email.split("@")[0] ||
     u.name;
 
-  db.update(schema.users)
+  await db.update(schema.users)
     .set({
       name,
       email,

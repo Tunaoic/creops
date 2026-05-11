@@ -58,26 +58,26 @@ export async function addWatcher(
   userId: string
 ): Promise<void> {
   if (target === "topic") {
-    const row = db.select({ watcherIds: schema.topics.watcherIds })
+    const row = await db.select({ watcherIds: schema.topics.watcherIds })
       .from(schema.topics).where(eq(schema.topics.id, targetId)).get();
     const current = (row?.watcherIds as string[]) ?? [];
     if (current.includes(userId)) return;
-    db.update(schema.topics)
+    await db.update(schema.topics)
       .set({ watcherIds: [...current, userId] })
       .where(eq(schema.topics.id, targetId))
       .run();
     revalidateAfterProgress(targetId);
   } else {
-    const row = db.select({ watcherIds: schema.tasks.watcherIds, deliverableId: schema.tasks.deliverableId })
+    const row = await db.select({ watcherIds: schema.tasks.watcherIds, deliverableId: schema.tasks.deliverableId })
       .from(schema.tasks).where(eq(schema.tasks.id, targetId)).get();
     if (!row) return;
     const current = (row.watcherIds as string[]) ?? [];
     if (current.includes(userId)) return;
-    db.update(schema.tasks)
+    await db.update(schema.tasks)
       .set({ watcherIds: [...current, userId] })
       .where(eq(schema.tasks.id, targetId))
       .run();
-    const topic = db.select({ topicId: schema.deliverables.topicId })
+    const topic = await db.select({ topicId: schema.deliverables.topicId })
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, row.deliverableId))
       .get();
@@ -91,26 +91,26 @@ export async function removeWatcher(
   userId: string
 ): Promise<void> {
   if (target === "topic") {
-    const row = db.select({ watcherIds: schema.topics.watcherIds })
+    const row = await db.select({ watcherIds: schema.topics.watcherIds })
       .from(schema.topics).where(eq(schema.topics.id, targetId)).get();
     const current = (row?.watcherIds as string[]) ?? [];
     if (!current.includes(userId)) return;
-    db.update(schema.topics)
+    await db.update(schema.topics)
       .set({ watcherIds: current.filter((id) => id !== userId) })
       .where(eq(schema.topics.id, targetId))
       .run();
     revalidateAfterProgress(targetId);
   } else {
-    const row = db.select({ watcherIds: schema.tasks.watcherIds, deliverableId: schema.tasks.deliverableId })
+    const row = await db.select({ watcherIds: schema.tasks.watcherIds, deliverableId: schema.tasks.deliverableId })
       .from(schema.tasks).where(eq(schema.tasks.id, targetId)).get();
     if (!row) return;
     const current = (row.watcherIds as string[]) ?? [];
     if (!current.includes(userId)) return;
-    db.update(schema.tasks)
+    await db.update(schema.tasks)
       .set({ watcherIds: current.filter((id) => id !== userId) })
       .where(eq(schema.tasks.id, targetId))
       .run();
-    const topic = db.select({ topicId: schema.deliverables.topicId })
+    const topic = await db.select({ topicId: schema.deliverables.topicId })
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, row.deliverableId))
       .get();
@@ -128,7 +128,7 @@ export async function renameWorkspace(
 ): Promise<void> {
   const trimmed = name.trim();
   if (!trimmed) return;
-  db.update(schema.workspaces)
+  await db.update(schema.workspaces)
     .set({ name: trimmed })
     .where(eq(schema.workspaces.id, workspaceId))
     .run();
@@ -216,7 +216,7 @@ export async function createTopic(input: {
   const topicId = `t_${randomUUID().slice(0, 8)}`;
   const actorId = await getActorId();
 
-  db.insert(schema.topics).values({
+  await db.insert(schema.topics).values({
     id: topicId,
     workspaceId: WORKSPACE_ID,
     creatorId: actorId,
@@ -228,7 +228,7 @@ export async function createTopic(input: {
   // Insert material links as source assets (type=link)
   for (const link of input.materialLinks) {
     if (!link.url.trim()) continue;
-    db.insert(schema.sourceAssets).values({
+    await db.insert(schema.sourceAssets).values({
       id: `a_${randomUUID().slice(0, 8)}`,
       topicId,
       type: "doc",
@@ -247,7 +247,7 @@ export async function createTopic(input: {
     if (!DELIVERABLE_TYPE_CHANNELS[type]) continue;
 
     const deliverableId = `d_${randomUUID().slice(0, 8)}`;
-    db.insert(schema.deliverables).values({
+    await db.insert(schema.deliverables).values({
       id: deliverableId,
       topicId,
       type,
@@ -256,7 +256,7 @@ export async function createTopic(input: {
 
     const channelIds: string[] = [];
     for (const platform of channels) {
-      const ch = db
+      const ch = await db
         .select()
         .from(schema.channels)
         .where(
@@ -267,7 +267,7 @@ export async function createTopic(input: {
         )
         .get();
       if (ch) {
-        db.insert(schema.deliverableChannels).values({
+        await db.insert(schema.deliverableChannels).values({
           id: `dc_${randomUUID().slice(0, 8)}`,
           deliverableId,
           channelId: ch.id,
@@ -281,7 +281,7 @@ export async function createTopic(input: {
       const assigneeIds: string[] = [];
       if (tpl.perChannel && channelIds.length > 0) {
         for (const cid of channelIds) {
-          db.insert(schema.tasks).values({
+          await db.insert(schema.tasks).values({
             id: `tk_${randomUUID().slice(0, 8)}`,
             deliverableId,
             templateItemKey: tpl.key,
@@ -293,7 +293,7 @@ export async function createTopic(input: {
           }).run();
         }
       } else {
-        db.insert(schema.tasks).values({
+        await db.insert(schema.tasks).values({
           id: `tk_${randomUUID().slice(0, 8)}`,
           deliverableId,
           templateItemKey: tpl.key,
@@ -306,7 +306,7 @@ export async function createTopic(input: {
     }
   }
 
-  logActivity({
+  await logActivity({
     action: "topic.created",
     targetType: "topic",
     targetId: topicId,
@@ -324,7 +324,7 @@ export async function addMaterialLink(input: {
   label?: string;
 }): Promise<void> {
   if (!input.url.trim()) return;
-  db.insert(schema.sourceAssets).values({
+  await db.insert(schema.sourceAssets).values({
     id: `a_${randomUUID().slice(0, 8)}`,
     topicId: input.topicId,
     type: "doc",
@@ -340,7 +340,7 @@ export async function removeMaterialLink(input: {
   topicId: string;
   assetId: string;
 }): Promise<void> {
-  db.delete(schema.sourceAssets)
+  await db.delete(schema.sourceAssets)
     .where(eq(schema.sourceAssets.id, input.assetId))
     .run();
   revalidatePath(`/topics/${input.topicId}`);
@@ -353,7 +353,7 @@ export async function addDeliverableToTopic(
 ): Promise<{ deliverableId: string }> {
   const deliverableId = `d_${randomUUID().slice(0, 8)}`;
 
-  db.insert(schema.deliverables).values({
+  await db.insert(schema.deliverables).values({
     id: deliverableId,
     topicId,
     type,
@@ -362,7 +362,7 @@ export async function addDeliverableToTopic(
 
   const channelIds: string[] = [];
   for (const platform of channels) {
-    const ch = db
+    const ch = await db
       .select()
       .from(schema.channels)
       .where(
@@ -373,7 +373,7 @@ export async function addDeliverableToTopic(
       )
       .get();
     if (ch) {
-      db.insert(schema.deliverableChannels).values({
+      await db.insert(schema.deliverableChannels).values({
         id: `dc_${randomUUID().slice(0, 8)}`,
         deliverableId,
         channelId: ch.id,
@@ -387,7 +387,7 @@ export async function addDeliverableToTopic(
     const assigneeIds: string[] = [];
     if (tpl.perChannel && channelIds.length > 0) {
       for (const cid of channelIds) {
-        db.insert(schema.tasks).values({
+        await db.insert(schema.tasks).values({
           id: `tk_${randomUUID().slice(0, 8)}`,
           deliverableId,
           templateItemKey: tpl.key,
@@ -399,7 +399,7 @@ export async function addDeliverableToTopic(
         }).run();
       }
     } else {
-      db.insert(schema.tasks).values({
+      await db.insert(schema.tasks).values({
         id: `tk_${randomUUID().slice(0, 8)}`,
         deliverableId,
         templateItemKey: tpl.key,
@@ -432,7 +432,7 @@ export async function bulkAssignTasks(
   assigneeIds: string[]
 ): Promise<void> {
   if (taskIds.length === 0) return;
-  const tasks = db
+  const tasks = await db
     .select()
     .from(schema.tasks)
     .where(inArray(schema.tasks.id, taskIds))
@@ -446,18 +446,18 @@ export async function bulkAssignTasks(
     const removed = prev.filter((id) => !assigneeIds.includes(id));
     if (added.length === 0 && removed.length === 0) continue;
 
-    db.update(schema.tasks)
+    await db.update(schema.tasks)
       .set({ assigneeIds })
       .where(eq(schema.tasks.id, t.id))
       .run();
-    logActivity({
+    await logActivity({
       action: assigneeIds.length > 0 ? "task.assigned" : "task.unassigned",
       targetType: "task",
       targetId: t.id,
       metadata: { assigneeIds, added, removed, bulk: true },
     });
 
-    const deliverable = db
+    const deliverable = await db
       .select()
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, t.deliverableId))
@@ -481,7 +481,7 @@ export async function bulkAssignTasks(
 
   // All tasks share the same deliverable (panel-scoped). Revalidate the
   // first task's topic — covers the page that called us.
-  const topic = db
+  const topic = await db
     .select({ topicId: schema.deliverables.topicId })
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, tasks[0].deliverableId))
@@ -491,7 +491,7 @@ export async function bulkAssignTasks(
 
 export async function bulkApproveTasks(taskIds: string[]): Promise<void> {
   if (taskIds.length === 0) return;
-  const tasks = db
+  const tasks = await db
     .select()
     .from(schema.tasks)
     .where(inArray(schema.tasks.id, taskIds))
@@ -504,11 +504,11 @@ export async function bulkApproveTasks(taskIds: string[]): Promise<void> {
 
   // Apply writes
   for (const t of approvable) {
-    db.update(schema.tasks)
+    await db.update(schema.tasks)
       .set({ status: "approved", approvedAt: new Date() })
       .where(eq(schema.tasks.id, t.id))
       .run();
-    logActivity({
+    await logActivity({
       action: "task.approved",
       targetType: "task",
       targetId: t.id,
@@ -519,7 +519,7 @@ export async function bulkApproveTasks(taskIds: string[]): Promise<void> {
   // Notify per-task (assignees + watchers learn each outcome individually).
   // Snapshot was taken before the writes so we have the pre-update assignees.
   const deliverableId = approvable[0].deliverableId;
-  const topic = db
+  const topic = await db
     .select({ topicId: schema.deliverables.topicId })
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, deliverableId))
@@ -529,7 +529,7 @@ export async function bulkApproveTasks(taskIds: string[]): Promise<void> {
   for (const t of approvable) {
     const assigneesBefore = (t.assigneeIds as string[]) ?? [];
     await notifyMany(
-      [...assigneesBefore, ...getStakeholders(topicId, t.id)],
+      [...assigneesBefore, ...(await getStakeholders(topicId, t.id))],
       {
         event: "task_approved",
         topicId,
@@ -555,7 +555,7 @@ export async function bulkRejectTasks(
   reason: string
 ): Promise<void> {
   if (taskIds.length === 0) return;
-  const tasks = db
+  const tasks = await db
     .select()
     .from(schema.tasks)
     .where(inArray(schema.tasks.id, taskIds))
@@ -566,11 +566,11 @@ export async function bulkRejectTasks(
   if (rejectable.length === 0) return;
 
   for (const t of rejectable) {
-    db.update(schema.tasks)
+    await db.update(schema.tasks)
       .set({ status: "rejected", rejectReason: reason })
       .where(eq(schema.tasks.id, t.id))
       .run();
-    logActivity({
+    await logActivity({
       action: "task.rejected",
       targetType: "task",
       targetId: t.id,
@@ -579,7 +579,7 @@ export async function bulkRejectTasks(
   }
 
   const deliverableId = rejectable[0].deliverableId;
-  const topic = db
+  const topic = await db
     .select({ topicId: schema.deliverables.topicId })
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, deliverableId))
@@ -589,7 +589,7 @@ export async function bulkRejectTasks(
   for (const t of rejectable) {
     const assigneesBefore = (t.assigneeIds as string[]) ?? [];
     await notifyMany(
-      [...assigneesBefore, ...getStakeholders(topicId, t.id)],
+      [...assigneesBefore, ...(await getStakeholders(topicId, t.id))],
       {
         event: "task_rejected",
         topicId,
@@ -602,13 +602,13 @@ export async function bulkRejectTasks(
 
   // Forward-only rollup applies to bulk too: only revert deliverable if it
   // was already approved/in review.
-  const deliv = db
+  const deliv = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, deliverableId))
     .get();
   if (deliv?.status === "approved" || deliv?.status === "review") {
-    db.update(schema.deliverables)
+    await db.update(schema.deliverables)
       .set({ status: "in_progress", approvedAt: null })
       .where(eq(schema.deliverables.id, deliverableId))
       .run();
@@ -624,7 +624,7 @@ export async function assignTask(
   taskId: string,
   assigneeIds: string[]
 ): Promise<ActionResult> {
-  const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+  const before = await db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
   if (!before) return noop("task not found");
 
   const prevIds = ((before.assigneeIds as string[]) ?? []) as string[];
@@ -636,19 +636,19 @@ export async function assignTask(
     return noop("no assignee change");
   }
 
-  db.update(schema.tasks)
+  await db.update(schema.tasks)
     .set({ assigneeIds })
     .where(eq(schema.tasks.id, taskId))
     .run();
 
-  logActivity({
+  await logActivity({
     action: assigneeIds.length > 0 ? "task.assigned" : "task.unassigned",
     targetType: "task",
     targetId: taskId,
     metadata: { assigneeIds, added: newlyAdded, removed: newlyRemoved },
   });
 
-  const deliverable = db
+  const deliverable = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, before.deliverableId))
@@ -712,7 +712,7 @@ export async function submitTask(
   taskId: string,
   output: unknown
 ): Promise<ActionResult> {
-  const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+  const before = await db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
   if (!before) return noop("task not found");
 
   // Guard: refuse submits on already-approved tasks (would silently overwrite
@@ -721,7 +721,7 @@ export async function submitTask(
     return noop("task already approved — cannot resubmit");
   }
 
-  db.update(schema.tasks)
+  await db.update(schema.tasks)
     .set({
       outputValue: output as never,
       status: "submitted",
@@ -733,21 +733,21 @@ export async function submitTask(
     .where(eq(schema.tasks.id, taskId))
     .run();
 
-  logActivity({
+  await logActivity({
     action: "task.submitted",
     targetType: "task",
     targetId: taskId,
     metadata: { from: before.status, to: "submitted" },
   });
 
-  const deliverable = db
+  const deliverable = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, before.deliverableId))
     .get();
   const topicId = deliverable?.topicId;
   // Fan out to creator + topic watchers + task watchers
-  const stakeholders = getStakeholders(topicId, taskId);
+  const stakeholders = await getStakeholders(topicId, taskId);
   await notifyMany(stakeholders, {
     event: "task_submitted",
     topicId,
@@ -758,7 +758,7 @@ export async function submitTask(
 
   const wasReviewBefore = deliverable?.status === "review";
   await maybeRollUpDeliverableStatus(before.deliverableId);
-  const after = db
+  const after = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, before.deliverableId))
@@ -776,7 +776,7 @@ export async function submitTask(
 }
 
 export async function approveTask(taskId: string): Promise<ActionResult> {
-  const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+  const before = await db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
   if (!before) return noop("task not found");
 
   // Guard: only submitted tasks can be approved (kanban convention —
@@ -787,19 +787,19 @@ export async function approveTask(taskId: string): Promise<ActionResult> {
 
   const assigneesBefore = (before.assigneeIds as string[]) ?? [];
 
-  db.update(schema.tasks)
+  await db.update(schema.tasks)
     .set({ status: "approved", approvedAt: new Date() })
     .where(eq(schema.tasks.id, taskId))
     .run();
 
-  logActivity({
+  await logActivity({
     action: "task.approved",
     targetType: "task",
     targetId: taskId,
     metadata: { from: before.status, to: "approved" },
   });
 
-  const deliverable = db
+  const deliverable = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, before.deliverableId))
@@ -807,7 +807,7 @@ export async function approveTask(taskId: string): Promise<ActionResult> {
   const topicId = deliverable?.topicId;
 
   await notifyMany(
-    [...assigneesBefore, ...getStakeholders(topicId, taskId)],
+    [...assigneesBefore, ...(await getStakeholders(topicId, taskId))],
     {
       event: "task_approved",
       topicId,
@@ -823,19 +823,19 @@ export async function approveTask(taskId: string): Promise<ActionResult> {
 }
 
 export async function rejectTask(taskId: string, reason: string): Promise<ActionResult> {
-  const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+  const before = await db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
   if (!before) return noop("task not found");
 
   if (before.status !== "submitted") {
     return noop(`cannot reject task in state '${before.status}' (must be 'submitted')`);
   }
 
-  db.update(schema.tasks)
+  await db.update(schema.tasks)
     .set({ status: "rejected", rejectReason: reason })
     .where(eq(schema.tasks.id, taskId))
     .run();
 
-  logActivity({
+  await logActivity({
     action: "task.rejected",
     targetType: "task",
     targetId: taskId,
@@ -843,14 +843,14 @@ export async function rejectTask(taskId: string, reason: string): Promise<Action
   });
 
   const rejectedAssignees = (before.assigneeIds as string[]) ?? [];
-  const deliverable = db
+  const deliverable = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, before.deliverableId))
     .get();
   const topicId = deliverable?.topicId;
   await notifyMany(
-    [...rejectedAssignees, ...getStakeholders(topicId, taskId)],
+    [...rejectedAssignees, ...(await getStakeholders(topicId, taskId))],
     {
       event: "task_rejected",
       topicId,
@@ -864,7 +864,7 @@ export async function rejectTask(taskId: string, reason: string): Promise<Action
   // been bumped to 'approved' or 'review'. Otherwise leave it alone — natural
   // re-rollup will fire when the resubmit eventually lands.
   if (deliverable?.status === "approved" || deliverable?.status === "review") {
-    db.update(schema.deliverables)
+    await db.update(schema.deliverables)
       .set({ status: "in_progress", approvedAt: null })
       .where(eq(schema.deliverables.id, before.deliverableId))
       .run();
@@ -884,7 +884,7 @@ export async function approveDeliverable(
   decisions: Record<string, "approve" | "reject">,
   rejectComments: Record<string, string>
 ): Promise<void> {
-  const topic = db
+  const topic = await db
     .select({ topicId: schema.deliverables.topicId })
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, deliverableId))
@@ -893,7 +893,7 @@ export async function approveDeliverable(
 
   // Snapshot tasks before update so we can fire notifications with the
   // right assignees + skip no-op transitions.
-  const taskRows = db
+  const taskRows = await db
     .select()
     .from(schema.tasks)
     .where(inArray(schema.tasks.id, Object.keys(decisions)))
@@ -909,13 +909,13 @@ export async function approveDeliverable(
     if (t.status !== "submitted") continue; // guard: only submitted → approve/reject
 
     if (decision === "approve") {
-      db.update(schema.tasks)
+      await db.update(schema.tasks)
         .set({ status: "approved", approvedAt: new Date() })
         .where(eq(schema.tasks.id, taskId))
         .run();
       willApprove.push(t);
     } else {
-      db.update(schema.tasks)
+      await db.update(schema.tasks)
         .set({
           status: "rejected",
           rejectReason: rejectComments[taskId] ?? null,
@@ -938,7 +938,7 @@ export async function approveDeliverable(
       metadata: { from: t.status, to: "approved", via: "approve_flow" },
     });
     await notifyMany(
-      [...assigneesBefore, ...getStakeholders(topicId, t.id)],
+      [...assigneesBefore, ...(await getStakeholders(topicId, t.id))],
       {
         event: "task_approved",
         topicId,
@@ -958,7 +958,7 @@ export async function approveDeliverable(
       metadata: { reason, from: t.status, to: "rejected", via: "approve_flow" },
     });
     await notifyMany(
-      [...assigneesBefore, ...getStakeholders(topicId, t.id)],
+      [...assigneesBefore, ...(await getStakeholders(topicId, t.id))],
       {
         event: "task_rejected",
         topicId,
@@ -970,13 +970,13 @@ export async function approveDeliverable(
   }
 
   await maybeRollUpDeliverableStatus(deliverableId);
-  const after = db
+  const after = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, deliverableId))
     .get();
   if (after?.status === "approved") {
-    const stakeholders = getStakeholders(topicId, null);
+    const stakeholders = await getStakeholders(topicId, null);
     await notifyMany(stakeholders, {
       event: "deliverable_approved",
       topicId,
@@ -996,14 +996,14 @@ export async function markChannelAired(
 ): Promise<ActionResult> {
   // Guard: deliverable must be approved before any channel can air.
   // (UI hides the button when not approved, but server is the source of truth.)
-  const dcCheck = db
+  const dcCheck = await db
     .select()
     .from(schema.deliverableChannels)
     .where(eq(schema.deliverableChannels.id, deliverableChannelId))
     .get();
   if (!dcCheck) return noop("deliverable channel not found");
   if (dcCheck.airedLink) return noop("channel already aired");
-  const delivCheck = db
+  const delivCheck = await db
     .select({ status: schema.deliverables.status })
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, dcCheck.deliverableId))
@@ -1014,12 +1014,12 @@ export async function markChannelAired(
     );
   }
 
-  db.update(schema.deliverableChannels)
+  await db.update(schema.deliverableChannels)
     .set({ airedLink, airedAt: new Date() })
     .where(eq(schema.deliverableChannels.id, deliverableChannelId))
     .run();
 
-  logActivity({
+  await logActivity({
     action: "channel.aired",
     targetType: "deliverable_channel",
     targetId: deliverableChannelId,
@@ -1027,20 +1027,20 @@ export async function markChannelAired(
   });
 
   // Notify topic creator that something went live
-  const dcRow = db
+  const dcRow = await db
     .select()
     .from(schema.deliverableChannels)
     .where(eq(schema.deliverableChannels.id, deliverableChannelId))
     .get();
   if (dcRow) {
-    const deliv = db
+    const deliv = await db
       .select()
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, dcRow.deliverableId))
       .get();
     if (deliv) {
       // Fan out aired event to creator + topic watchers
-      const stakeholders = getStakeholders(deliv.topicId, null);
+      const stakeholders = await getStakeholders(deliv.topicId, null);
       await notifyMany(stakeholders, {
         event: "deliverable_aired",
         topicId: deliv.topicId,
@@ -1050,25 +1050,25 @@ export async function markChannelAired(
     }
   }
 
-  const dc = db
+  const dc = await db
     .select()
     .from(schema.deliverableChannels)
     .where(eq(schema.deliverableChannels.id, deliverableChannelId))
     .get();
   if (dc) {
-    const allChannels = db
+    const allChannels = await db
       .select()
       .from(schema.deliverableChannels)
       .where(eq(schema.deliverableChannels.deliverableId, dc.deliverableId))
       .all();
     if (allChannels.every((c) => c.airedAt)) {
-      db.update(schema.deliverables)
+      await db.update(schema.deliverables)
         .set({ status: "aired", airedAt: new Date() })
         .where(eq(schema.deliverables.id, dc.deliverableId))
         .run();
       await maybeRollUpTopicStatus(dc.deliverableId);
     }
-    const topic = db
+    const topic = await db
       .select({ topicId: schema.deliverables.topicId })
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, dc.deliverableId))
@@ -1083,7 +1083,7 @@ export async function markChannelAired(
 // ============================================================================
 
 async function maybeRollUpDeliverableStatus(deliverableId: string) {
-  const tasks = db
+  const tasks = await db
     .select()
     .from(schema.tasks)
     .where(eq(schema.tasks.deliverableId, deliverableId))
@@ -1097,12 +1097,12 @@ async function maybeRollUpDeliverableStatus(deliverableId: string) {
   );
 
   if (allApproved) {
-    db.update(schema.deliverables)
+    await db.update(schema.deliverables)
       .set({ status: "approved", approvedAt: new Date() })
       .where(eq(schema.deliverables.id, deliverableId))
       .run();
   } else if (allDone) {
-    db.update(schema.deliverables)
+    await db.update(schema.deliverables)
       .set({ status: "review" })
       .where(eq(schema.deliverables.id, deliverableId))
       .run();
@@ -1110,13 +1110,13 @@ async function maybeRollUpDeliverableStatus(deliverableId: string) {
 }
 
 async function maybeRollUpTopicStatus(deliverableId: string) {
-  const deliverable = db
+  const deliverable = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, deliverableId))
     .get();
   if (!deliverable) return;
-  const all = db
+  const all = await db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.topicId, deliverable.topicId))
@@ -1126,7 +1126,7 @@ async function maybeRollUpTopicStatus(deliverableId: string) {
   if (airedCount === all.length) newStatus = "fully_aired";
   else if (airedCount > 0) newStatus = "partially_aired";
   else return;
-  db.update(schema.topics)
+  await db.update(schema.topics)
     .set({ status: newStatus })
     .where(eq(schema.topics.id, deliverable.topicId))
     .run();
@@ -1143,7 +1143,7 @@ export async function updateWorkspaceSettings(input: {
   if (input.blockReasonDisplay) update.blockReasonDisplay = input.blockReasonDisplay;
 
   if (Object.keys(update).length === 0) return;
-  db.update(schema.workspaceSettings)
+  await db.update(schema.workspaceSettings)
     .set(update)
     .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
     .run();
@@ -1157,7 +1157,7 @@ export async function updateChannelStyleGuide(input: {
   samples: string[];
   promptOverride?: string;
 }): Promise<void> {
-  const existing = db
+  const existing = await db
     .select()
     .from(schema.channelStyleGuides)
     .where(
@@ -1169,7 +1169,7 @@ export async function updateChannelStyleGuide(input: {
     .get();
 
   if (existing) {
-    db.update(schema.channelStyleGuides)
+    await db.update(schema.channelStyleGuides)
       .set({
         samples: input.samples,
         promptOverride: input.promptOverride,
@@ -1178,7 +1178,7 @@ export async function updateChannelStyleGuide(input: {
       .where(eq(schema.channelStyleGuides.id, existing.id))
       .run();
   } else {
-    db.insert(schema.channelStyleGuides).values({
+    await db.insert(schema.channelStyleGuides).values({
       id: `csg_${randomUUID().slice(0, 8)}`,
       channelId: input.channelId,
       contentType: input.contentType,
@@ -1194,7 +1194,7 @@ export async function updateChannelStyleGuide(input: {
 // ============================================================================
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
-  db.update(schema.notifications)
+  await db.update(schema.notifications)
     .set({ readAt: new Date() })
     .where(eq(schema.notifications.id, notificationId))
     .run();
@@ -1205,7 +1205,7 @@ export async function markNotificationRead(notificationId: string): Promise<void
 export async function markAllNotificationsRead(): Promise<void> {
   const actorId = await getActorId();
   if (!actorId) return;
-  db.update(schema.notifications)
+  await db.update(schema.notifications)
     .set({ readAt: new Date() })
     .where(
       and(
@@ -1230,7 +1230,7 @@ async function logActivity(input: {
 }): Promise<void> {
   try {
     const actorId = await getActorId();
-    db.insert(schema.activityLog).values({
+    await db.insert(schema.activityLog).values({
       id: `act_${randomUUID().slice(0, 8)}`,
       workspaceId: WORKSPACE_ID,
       actorId,
@@ -1273,7 +1273,7 @@ async function notify(input: {
   const actor = await getActorId();
   if (!input.userId || input.userId === actor) return;
   try {
-    db.insert(schema.notifications).values({
+    await db.insert(schema.notifications).values({
       id: `n_${randomUUID().slice(0, 8)}`,
       userId: input.userId,
       event: input.event,
@@ -1316,14 +1316,14 @@ async function notifyMany(
  * deliverable_* events. Returns deduped userIds (filter happens in
  * notifyMany via the seen-set).
  */
-function getStakeholders(
+async function getStakeholders(
   topicId: string | null | undefined,
   taskId: string | null | undefined,
   opts: { includeAssignees?: boolean } = {}
-): string[] {
+): Promise<string[]> {
   const out: string[] = [];
   if (topicId) {
-    const t = db
+    const t = await db
       .select({ creatorId: schema.topics.creatorId, watcherIds: schema.topics.watcherIds })
       .from(schema.topics)
       .where(eq(schema.topics.id, topicId))
@@ -1332,7 +1332,7 @@ function getStakeholders(
     if (t?.watcherIds) out.push(...((t.watcherIds as string[]) ?? []));
   }
   if (taskId) {
-    const tk = db
+    const tk = await db
       .select({
         watcherIds: schema.tasks.watcherIds,
         assigneeIds: schema.tasks.assigneeIds,
@@ -1360,16 +1360,16 @@ function revalidateAfterProgress(topicId?: string | null) {
   if (topicId) revalidatePath(`/topics/${topicId}`);
 }
 
-function getCreatorOfTask(taskId: string): string | null {
-  const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+async function getCreatorOfTask(taskId: string): Promise<string | null> {
+  const task = await db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
   if (!task) return null;
-  const deliverable = db
+  const deliverable = await db
     .select({ topicId: schema.deliverables.topicId })
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, task.deliverableId))
     .get();
   if (!deliverable) return null;
-  const topic = db
+  const topic = await db
     .select({ creatorId: schema.topics.creatorId })
     .from(schema.topics)
     .where(eq(schema.topics.id, deliverable.topicId))
@@ -1390,7 +1390,7 @@ export async function addComment(input: {
   if (!input.body.trim()) throw new Error("Empty comment");
   const commentId = `c_${randomUUID().slice(0, 8)}`;
   const mentions = input.mentions ?? [];
-  db.insert(schema.comments).values({
+  await db.insert(schema.comments).values({
     id: commentId,
     workspaceId: WORKSPACE_ID,
     targetType: input.targetType,
@@ -1407,21 +1407,21 @@ export async function addComment(input: {
     let taskId: string | undefined;
     if (input.targetType === "task") {
       taskId = input.targetId;
-      const t = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+      const t = await db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
       if (t) {
         deliverableId = t.deliverableId;
-        const d = db.select().from(schema.deliverables).where(eq(schema.deliverables.id, deliverableId)).get();
+        const d = await db.select().from(schema.deliverables).where(eq(schema.deliverables.id, deliverableId)).get();
         topicId = d?.topicId;
       }
     } else if (input.targetType === "topic") {
       topicId = input.targetId;
     } else if (input.targetType === "deliverable") {
       deliverableId = input.targetId;
-      const d = db.select().from(schema.deliverables).where(eq(schema.deliverables.id, deliverableId)).get();
+      const d = await db.select().from(schema.deliverables).where(eq(schema.deliverables.id, deliverableId)).get();
       topicId = d?.topicId;
     }
     for (const userId of mentions) {
-      notify({
+      await notify({
         userId,
         event: "mentioned",
         topicId,
@@ -1434,9 +1434,9 @@ export async function addComment(input: {
 
   // Revalidate the appropriate page
   if (input.targetType === "task") {
-    const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, input.targetId)).get();
+    const task = await db.select().from(schema.tasks).where(eq(schema.tasks.id, input.targetId)).get();
     if (task) {
-      const topic = db
+      const topic = await db
         .select({ topicId: schema.deliverables.topicId })
         .from(schema.deliverables)
         .where(eq(schema.deliverables.id, task.deliverableId))
@@ -1449,20 +1449,20 @@ export async function addComment(input: {
   } else if (input.targetType === "topic") {
     revalidatePath(`/topics/${input.targetId}`);
   } else if (input.targetType === "deliverable") {
-    const d = db.select().from(schema.deliverables).where(eq(schema.deliverables.id, input.targetId)).get();
+    const d = await db.select().from(schema.deliverables).where(eq(schema.deliverables.id, input.targetId)).get();
     if (d) revalidatePath(`/topics/${d.topicId}`);
   }
   return { commentId };
 }
 
 export async function removeComment(commentId: string): Promise<void> {
-  const c = db.select().from(schema.comments).where(eq(schema.comments.id, commentId)).get();
+  const c = await db.select().from(schema.comments).where(eq(schema.comments.id, commentId)).get();
   if (!c) return;
-  db.delete(schema.comments).where(eq(schema.comments.id, commentId)).run();
+  await db.delete(schema.comments).where(eq(schema.comments.id, commentId)).run();
   if (c.targetType === "task") {
-    const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, c.targetId)).get();
+    const task = await db.select().from(schema.tasks).where(eq(schema.tasks.id, c.targetId)).get();
     if (task) {
-      const topic = db
+      const topic = await db
         .select({ topicId: schema.deliverables.topicId })
         .from(schema.deliverables)
         .where(eq(schema.deliverables.id, task.deliverableId))
@@ -1484,7 +1484,7 @@ export async function createMember(input: {
   role: string;
 }): Promise<{ userId: string }> {
   const userId = `u_${randomUUID().slice(0, 8)}`;
-  db.insert(schema.users).values({
+  await db.insert(schema.users).values({
     id: userId,
     workspaceId: WORKSPACE_ID,
     name: input.name.trim(),
@@ -1509,7 +1509,7 @@ export async function updateMember(input: {
   if (input.role !== undefined) update.roles = [input.role];
   if (input.accessLevel !== undefined) update.accessLevel = input.accessLevel;
   if (Object.keys(update).length === 0) return;
-  db.update(schema.users)
+  await db.update(schema.users)
     .set(update)
     .where(eq(schema.users.id, input.userId))
     .run();
@@ -1519,19 +1519,19 @@ export async function updateMember(input: {
 
 export async function removeMember(userId: string): Promise<void> {
   // Find tasks where user is in assigneeIds — remove them from each
-  const allTasks = db.select().from(schema.tasks).all();
+  const allTasks = await db.select().from(schema.tasks).all();
   for (const t of allTasks) {
     const ids = (t.assigneeIds as string[]) ?? [];
     if (ids.includes(userId)) {
       const filtered = ids.filter((id) => id !== userId);
-      db.update(schema.tasks)
+      await db.update(schema.tasks)
         .set({ assigneeIds: filtered })
         .where(eq(schema.tasks.id, t.id))
         .run();
     }
   }
   // Remove from default assignees
-  const settings = db
+  const settings = await db
     .select()
     .from(schema.workspaceSettings)
     .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
@@ -1546,13 +1546,13 @@ export async function removeMember(userId: string): Promise<void> {
       }
     }
     if (changed) {
-      db.update(schema.workspaceSettings)
+      await db.update(schema.workspaceSettings)
         .set({ defaultAssignees: defaults })
         .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
         .run();
     }
   }
-  db.delete(schema.users).where(eq(schema.users.id, userId)).run();
+  await db.delete(schema.users).where(eq(schema.users.id, userId)).run();
   revalidatePath("/settings/members");
   revalidatePath("/settings");
 }

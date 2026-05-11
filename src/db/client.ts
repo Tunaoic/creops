@@ -1,18 +1,25 @@
 import "server-only";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { createClient, type Client } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 
 /**
- * Local SQLite (better-sqlite3) — sync API, fast.
+ * libSQL client — single API for both local file and Turso cloud.
  *
- * Production migration plan (Round 1b, separate commit):
- *   Switch to @libsql/client (Turso). Requires async refactor of every
- *   query call (~150 sites). Tracked in DEPLOY.md.
+ * Local dev (default):
+ *   DATABASE_URL unset → file:./local.db (existing local.db works as-is,
+ *   libsql is a SQLite-compatible fork)
+ *
+ * Production (Turso):
+ *   DATABASE_URL=libsql://your-db.turso.io
+ *   DATABASE_AUTH_TOKEN=eyJ...
+ *
+ * All query call sites use `await` since libsql is async even for
+ * local files (the underlying driver does internal async I/O).
  */
-const sqlite = new Database("./local.db");
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+const url = process.env.DATABASE_URL ?? "file:./local.db";
+const authToken = process.env.DATABASE_AUTH_TOKEN;
 
-export const db = drizzle(sqlite, { schema });
+export const sqlClient: Client = createClient({ url, authToken });
+export const db = drizzle(sqlClient, { schema });
 export { schema };

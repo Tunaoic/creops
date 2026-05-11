@@ -40,14 +40,14 @@ export default async function OnboardingPage() {
     );
   }
 
-  const user = db
+  const user = await db
     .select()
     .from(schema.users)
     .where(eq(schema.users.id, userId))
     .get();
   if (!user) redirect("/");
 
-  const workspace = db
+  const workspace = await db
     .select()
     .from(schema.workspaces)
     .where(eq(schema.workspaces.id, user.workspaceId))
