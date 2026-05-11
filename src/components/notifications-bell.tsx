@@ -86,26 +86,28 @@ export function NotificationsBell({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "relative p-1.5 rounded-md text-text-muted hover:text-text hover:bg-surface-hover transition-colors",
+          "relative p-2 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors",
           open && "bg-surface-hover text-text"
         )}
         title="Notifications"
       >
-        <Bell className="w-3.5 h-3.5" />
+        <Bell className="w-4 h-4" strokeWidth={1.75} />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-accent text-accent-fg text-[9px] font-mono font-bold flex items-center justify-center leading-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-accent text-accent-fg text-[10px] font-semibold flex items-center justify-center leading-none tabular-nums">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-[360px] bg-surface rounded border border-border-strong shadow-2xl z-40 overflow-hidden">
-          <div className="px-3 py-2 border-b border-border bg-bg/40 flex items-center justify-between">
-            <span className="text-[11px] font-mono font-semibold uppercase tracking-[0.15em] text-text-subtle">
+        <div className="absolute right-0 top-full mt-2 w-[380px] bg-surface rounded-2xl border border-border shadow-2xl z-40 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <span className="text-[15px] font-semibold text-text">
               Notifications
               {unreadCount > 0 && (
-                <span className="ml-1.5 text-accent">· {unreadCount} new</span>
+                <span className="ml-2 text-[13px] text-accent font-normal">
+                  {unreadCount} new
+                </span>
               )}
             </span>
             {unreadCount > 0 && (
@@ -113,17 +115,17 @@ export function NotificationsBell({
                 type="button"
                 onClick={dismissAll}
                 disabled={pending}
-                className="text-[11px] font-mono text-text-muted hover:text-text disabled:opacity-50"
+                className="text-[13px] text-text-muted hover:text-text disabled:opacity-50"
               >
                 Mark all read
               </button>
             )}
           </div>
 
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="max-h-[440px] overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-3 py-6 text-center text-[12px] text-text-subtle italic">
-                No notifications yet.
+              <div className="px-4 py-8 text-center text-[14px] text-text-subtle">
+                No notifications yet
               </div>
             ) : (
               <div className="divide-y divide-border">
@@ -149,37 +151,37 @@ export function NotificationsBell({
                         setOpen(false);
                       }}
                       className={cn(
-                        "block px-3 py-2.5 hover:bg-surface-hover transition-colors group",
+                        "block px-4 py-3 hover:bg-surface-hover transition-colors group",
                         unread && "bg-accent/5"
                       )}
                     >
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-3">
                         <Icon
                           className={cn(
-                            "w-3.5 h-3.5 mt-0.5 shrink-0",
+                            "w-4 h-4 mt-0.5 shrink-0",
                             unread ? "text-accent" : "text-text-subtle"
                           )}
+                          strokeWidth={1.75}
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="text-[13px]">
+                          <div className="text-[14px]">
                             <span className="text-text font-medium">
                               {n.actorName ?? "Someone"}
                             </span>{" "}
                             <span className="text-text-muted">{label}</span>
                             {n.topicName && (
                               <>
-                                {" "}
-                                <span className="text-text-muted">·</span>{" "}
-                                <span className="text-accent">{n.topicName}</span>
+                                <span className="text-text-subtle"> · </span>
+                                <span className="text-accent font-medium">{n.topicName}</span>
                               </>
                             )}
                           </div>
                           {reason && (
-                            <div className="text-[11px] text-text-subtle italic truncate mt-0.5">
-                              "{reason}"
+                            <div className="text-[12px] text-text-muted truncate mt-1">
+                              &ldquo;{reason}&rdquo;
                             </div>
                           )}
-                          <div className="text-[10px] font-mono text-text-subtle mt-0.5">
+                          <div className="text-[12px] text-text-subtle mt-1">
                             {formatRelativeTime(n.createdAt)}
                           </div>
                         </div>
@@ -191,10 +193,10 @@ export function NotificationsBell({
                               e.stopPropagation();
                               dismiss(n.id);
                             }}
-                            className="p-1 text-text-subtle hover:text-text opacity-0 group-hover:opacity-100"
+                            className="p-1.5 rounded-full text-text-subtle hover:text-text hover:bg-surface-hover opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Mark read"
                           >
-                            <Check className="w-3 h-3" />
+                            <Check className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
@@ -205,11 +207,11 @@ export function NotificationsBell({
             )}
           </div>
 
-          <div className="px-3 py-1.5 border-t border-border bg-bg/40 text-center">
+          <div className="px-4 py-2.5 border-t border-border text-center">
             <Link
               href="/notifications"
               onClick={() => setOpen(false)}
-              className="text-[11px] font-mono text-text-muted hover:text-text"
+              className="text-[13px] text-accent hover:opacity-80 transition-opacity"
             >
               View all →
             </Link>

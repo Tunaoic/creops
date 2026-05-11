@@ -25,29 +25,27 @@ export function TaskDescriptionView({
   }
 
   return (
-    <section className="bg-surface rounded border border-border p-4">
-      <h3 className="text-[11px] font-mono uppercase tracking-[0.15em] text-text-subtle mb-3">
-        Description
-      </h3>
+    <section className="bg-surface rounded-2xl border border-border p-5">
+      <h3 className="text-headline text-text mb-3">Description</h3>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={18}
-        placeholder="Hook 2 câu → 3 bullet points → CTA → timestamps → resources..."
-        className="w-full px-3 py-2 rounded border border-border bg-bg text-[13px] font-mono leading-relaxed focus:outline-none focus:border-accent resize-y"
+        placeholder="Hook 2 lines → 3 bullet points → CTA → timestamps → resources..."
+        className="w-full px-3.5 py-2.5 text-[14px] leading-relaxed resize-y"
       />
-      <div className="text-[12px] font-mono text-text-subtle mt-2">
+      <div className="text-[13px] text-text-subtle mt-2 tabular-nums">
         {text.length} chars · {text.split(/\s+/).filter(Boolean).length} words
       </div>
-      <div className="flex justify-end gap-2 mt-4">
+      <div className="flex justify-end gap-2 mt-5">
         <button
           type="button"
           onClick={submit}
           disabled={!text.trim() || submitting}
-          className="btn-primary px-3 py-2 text-[13px] rounded inline-flex items-center gap-1.5 disabled:opacity-50"
+          className="btn-primary text-[14px] inline-flex items-center gap-1.5 disabled:opacity-50"
         >
           {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          Submit for Review →
+          Submit for review →
         </button>
       </div>
     </section>

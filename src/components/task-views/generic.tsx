@@ -42,8 +42,8 @@ export function TaskGenericView({
   // Chips → comma-separated input
 
   return (
-    <section className="bg-surface rounded border border-border p-4">
-      <h3 className="text-[11px] font-mono uppercase tracking-[0.15em] text-text-subtle mb-3 capitalize">
+    <section className="bg-surface rounded-2xl border border-border p-5">
+      <h3 className="text-headline text-text mb-3 capitalize">
         {templateItemKey.replace(/_/g, " ")}
       </h3>
 
@@ -57,23 +57,23 @@ export function TaskGenericView({
               : 4
           }
           placeholder={`Enter ${templateItemKey.replace(/_/g, " ")}...`}
-          className="w-full px-3 py-2 rounded border border-border bg-bg text-[13px] leading-relaxed focus:outline-none focus:border-accent resize-y"
+          className="w-full px-3.5 py-2.5 text-[14px] leading-relaxed resize-y"
         />
       )}
 
       {isFile && (
         <div>
-          <p className="text-[12px] text-text-subtle mb-2">
-            Upload file lên Drive / Dropbox / Frame.io rồi paste link.
+          <p className="text-[13px] text-text-muted mb-3">
+            Upload to Drive / Dropbox / Frame.io and paste the shareable link.
           </p>
           <div className="flex items-center gap-2">
-            <ExternalLink className="w-4 h-4 text-text-subtle shrink-0" />
+            <ExternalLink className="w-4 h-4 text-text-subtle shrink-0" strokeWidth={1.75} />
             <input
               type="url"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="https://drive.google.com/..."
-              className="flex-1 px-3 py-2 rounded text-[13px] border border-border bg-bg focus:outline-none focus:border-accent"
+              className="flex-1 px-3.5 py-2.5 text-[14px]"
             />
           </div>
         </div>
@@ -84,7 +84,7 @@ export function TaskGenericView({
           type="datetime-local"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="w-full px-3 py-2 rounded border border-border bg-bg text-[13px] focus:outline-none focus:border-accent"
+          className="w-full px-3.5 py-2.5 text-[14px]"
         />
       )}
 
@@ -95,23 +95,23 @@ export function TaskGenericView({
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="tag1, tag2, tag3..."
-            className="w-full px-3 py-2 rounded border border-border bg-bg text-[13px] focus:outline-none focus:border-accent"
+            className="w-full px-3.5 py-2.5 text-[14px]"
           />
-          <p className="text-[11px] text-text-subtle mt-1">
+          <p className="text-[12px] text-text-subtle mt-2">
             Comma-separated, max 15 tags
           </p>
         </div>
       )}
 
-      <div className="flex justify-end gap-2 mt-4">
+      <div className="flex justify-end gap-2 mt-5">
         <button
           type="button"
           onClick={submit}
           disabled={!text.trim() || submitting}
-          className="btn-primary px-3 py-2 text-[13px] rounded inline-flex items-center gap-1.5 disabled:opacity-50"
+          className="btn-primary text-[14px] inline-flex items-center gap-1.5 disabled:opacity-50"
         >
           {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          Submit for Review →
+          Submit for review →
         </button>
       </div>
     </section>

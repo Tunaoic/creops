@@ -163,104 +163,105 @@ export function CalendarView({
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
-      <div className="border-b border-border bg-surface/40 px-6 py-3 flex items-center justify-between gap-4">
+      <div className="border-b border-border px-8 pt-6 pb-4 flex items-end justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-text-subtle mb-1">
-            <CalendarDays className="w-3 h-3" /> CALENDAR · {mode.toUpperCase()}
-          </div>
-          <h1 className="text-lg font-semibold flex items-center gap-2">
+          <p className="text-[14px] text-text-muted mb-1 flex items-center gap-1.5">
+            <CalendarDays className="w-3.5 h-3.5" strokeWidth={1.75} />
+            Calendar · {mode === "air" ? "Air" : "Production"}
+          </p>
+          <h1 className="text-title-2 text-text flex items-baseline gap-2.5">
             {MONTHS[month]} {year}
-            <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-surface-elevated text-text-muted">
+            <span className="text-[15px] text-text-subtle font-normal tabular-nums">
               {monthCount} {mode === "air" ? "scheduled" : "due"}
             </span>
           </h1>
         </div>
 
-        {/* Mode tabs */}
-        <div className="flex items-center gap-1 bg-bg/40 rounded border border-border p-0.5 shrink-0">
+        {/* Mode tabs — Apple segmented control */}
+        <div className="flex items-center gap-0.5 bg-surface-elevated rounded-full p-0.5 shrink-0">
           <button
             type="button"
             onClick={() => setMode("air")}
             className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-mono uppercase tracking-wider transition-colors",
+              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[13px] font-medium transition-colors",
               mode === "air"
-                ? "bg-accent/15 text-accent border border-accent/40"
-                : "text-text-subtle hover:text-text border border-transparent"
+                ? "bg-surface text-text shadow-sm"
+                : "text-text-muted hover:text-text"
             )}
             title="Show scheduled & aired publish dates"
           >
-            <Radio className="w-3 h-3" />
+            <Radio className="w-3.5 h-3.5" strokeWidth={1.75} />
             Air
           </button>
           <button
             type="button"
             onClick={() => setMode("production")}
             className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-mono uppercase tracking-wider transition-colors",
+              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[13px] font-medium transition-colors",
               mode === "production"
-                ? "bg-info-bg text-info border border-info/40"
-                : "text-text-subtle hover:text-text border border-transparent"
+                ? "bg-surface text-text shadow-sm"
+                : "text-text-muted hover:text-text"
             )}
             title="Show task due dates"
           >
-            <ListTodo className="w-3 h-3" />
+            <ListTodo className="w-3.5 h-3.5" strokeWidth={1.75} />
             Production
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-0.5">
           {mode === "production" && (
             <button
               type="button"
               onClick={() => setMineOnly((v) => !v)}
               className={cn(
-                "inline-flex items-center gap-1.5 px-2 py-1.5 rounded border text-[12px] font-mono transition-colors",
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[13px] font-medium transition-colors",
                 mineOnly
-                  ? "border-accent text-accent bg-accent/5"
-                  : "border-border bg-surface text-text-subtle hover:text-text hover:border-border-strong"
+                  ? "border-accent/40 bg-accent/10 text-accent"
+                  : "border-border bg-surface text-text-muted hover:bg-surface-hover hover:text-text"
               )}
               title="Show only tasks assigned to current user"
             >
-              <UserIcon className="w-3 h-3" />
-              MINE
+              <UserIcon className="w-3.5 h-3.5" strokeWidth={1.75} />
+              Mine
             </button>
           )}
           <Link
             href={`/calendar?${qs(prevMonth, prevYear)}`}
-            className="p-1.5 rounded border border-border bg-surface hover:border-border-strong text-text-muted hover:text-text"
+            className="p-2 rounded-full border border-border bg-surface hover:bg-surface-hover text-text-muted hover:text-text transition-colors"
           >
-            <ChevronLeft className="w-3.5 h-3.5" />
+            <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.75} />
           </Link>
           <Link
             href={`/calendar?mode=${mode}${mineOnly ? "&mine=1" : ""}`}
-            className="px-2.5 py-1.5 rounded border border-border bg-surface hover:border-accent text-[12px] font-mono text-text-muted hover:text-text"
+            className="px-3.5 py-1.5 rounded-full border border-border bg-surface hover:bg-surface-hover text-[13px] font-medium text-text-muted hover:text-text transition-colors"
           >
             Today
           </Link>
           <Link
             href={`/calendar?${qs(nextMonth, nextYear)}`}
-            className="p-1.5 rounded border border-border bg-surface hover:border-border-strong text-text-muted hover:text-text"
+            className="p-2 rounded-full border border-border bg-surface hover:bg-surface-hover text-text-muted hover:text-text transition-colors"
           >
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
           </Link>
         </div>
       </div>
 
       {/* Filter chips (AIR mode only) */}
       {mode === "air" && platformsInItems.length > 1 && (
-        <div className="border-b border-border bg-bg/40 px-6 py-2 flex items-center gap-2 overflow-x-auto">
-          <Filter className="w-3 h-3 text-text-subtle shrink-0" />
+        <div className="border-b border-border px-8 py-2.5 flex items-center gap-1.5 overflow-x-auto">
+          <Filter className="w-3.5 h-3.5 text-text-subtle shrink-0 mr-1" strokeWidth={1.75} />
           <button
             type="button"
             onClick={() => setFilterPlatform("all")}
             className={cn(
-              "text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border transition-colors",
+              "text-[13px] font-medium px-3 py-1 rounded-full transition-colors",
               filterPlatform === "all"
-                ? "border-accent text-accent bg-accent/5"
-                : "border-transparent text-text-subtle hover:text-text"
+                ? "bg-accent/15 text-accent"
+                : "text-text-muted hover:bg-surface-hover hover:text-text"
             )}
           >
-            ALL
+            All
           </button>
           {platformsInItems.map((p) => (
             <button
@@ -268,10 +269,10 @@ export function CalendarView({
               type="button"
               onClick={() => setFilterPlatform(p)}
               className={cn(
-                "text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border transition-colors whitespace-nowrap",
+                "text-[13px] font-medium px-3 py-1 rounded-full transition-colors whitespace-nowrap",
                 filterPlatform === p
-                  ? "border-accent text-accent bg-accent/5"
-                  : "border-transparent text-text-subtle hover:text-text"
+                  ? "bg-accent/15 text-accent"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text"
               )}
             >
               {CHANNEL_LABEL[p]}

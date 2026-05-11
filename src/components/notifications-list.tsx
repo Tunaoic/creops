@@ -76,22 +76,22 @@ export function NotificationsList({
   return (
     <>
       {/* Filter chips */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {FILTERS.map((f) => (
           <button
             key={f.value}
             type="button"
             onClick={() => setFilter(f.value as "all" | "unread")}
             className={cn(
-              "px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider rounded border transition-colors",
+              "px-3 py-1 text-[13px] font-medium rounded-full transition-colors",
               filter === f.value
-                ? "border-accent text-accent bg-accent/5"
-                : "border-transparent text-text-subtle hover:text-text"
+                ? "bg-accent/15 text-accent"
+                : "text-text-muted hover:bg-surface-hover hover:text-text"
             )}
           >
             {f.label}
             {f.value === "unread" && unreadCount > 0 && (
-              <span className="ml-1.5 px-1 rounded bg-accent text-accent-fg">
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-accent text-accent-fg text-[11px] tabular-nums">
                 {unreadCount}
               </span>
             )}
@@ -102,7 +102,7 @@ export function NotificationsList({
             type="button"
             onClick={dismissAll}
             disabled={pending}
-            className="ml-auto text-[11px] font-mono text-text-muted hover:text-text disabled:opacity-50"
+            className="ml-auto text-[13px] text-text-muted hover:text-text disabled:opacity-50"
           >
             Mark all read
           </button>
@@ -111,7 +111,7 @@ export function NotificationsList({
 
       {/* List */}
       {filtered.length > 0 && (
-        <div className="bg-surface rounded border border-border overflow-hidden divide-y divide-border">
+        <div className="bg-surface rounded-2xl border border-border overflow-hidden divide-y divide-border">
           {filtered.map((n) => {
             const Icon = EVENT_ICON[n.event] ?? Bell;
             const label = EVENT_LABEL[n.event] ?? n.event;
@@ -131,7 +131,7 @@ export function NotificationsList({
                 href={link}
                 onClick={() => unread && dismiss(n.id)}
                 className={cn(
-                  "block px-4 py-3 hover:bg-surface-hover transition-colors group",
+                  "block px-5 py-3.5 hover:bg-surface-hover transition-colors group",
                   unread && "bg-accent/5"
                 )}
               >
@@ -141,29 +141,29 @@ export function NotificationsList({
                       "w-4 h-4 mt-0.5 shrink-0",
                       unread ? "text-accent" : "text-text-subtle"
                     )}
+                    strokeWidth={1.75}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px]">
+                    <div className="text-[15px]">
                       <span className="text-text font-medium">
                         {n.actorName ?? "Someone"}
                       </span>{" "}
                       <span className="text-text-muted">{label}</span>
                       {n.topicName && (
                         <>
-                          {" "}
-                          <span className="text-text-muted">·</span>{" "}
-                          <span className="text-accent font-semibold">
+                          <span className="text-text-subtle"> · </span>
+                          <span className="text-accent font-medium">
                             {n.topicName}
                           </span>
                         </>
                       )}
                     </div>
                     {reason && (
-                      <div className="text-[12px] text-text-subtle italic mt-1">
-                        "{reason}"
+                      <div className="text-[13px] text-text-muted mt-1">
+                        &ldquo;{reason}&rdquo;
                       </div>
                     )}
-                    <div className="text-[11px] font-mono text-text-subtle mt-1">
+                    <div className="text-[12px] text-text-subtle mt-1">
                       {formatRelativeTime(n.createdAt)}
                     </div>
                   </div>
@@ -175,7 +175,7 @@ export function NotificationsList({
                         e.stopPropagation();
                         dismiss(n.id);
                       }}
-                      className="p-1 text-text-subtle hover:text-text opacity-0 group-hover:opacity-100"
+                      className="p-1.5 rounded-full text-text-subtle hover:text-text hover:bg-surface-hover opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Mark read"
                     >
                       {pending ? (

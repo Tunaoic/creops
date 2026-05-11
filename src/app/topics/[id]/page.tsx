@@ -123,47 +123,48 @@ export default async function TopicDetailPage({
       <TopicPipeline topic={topic} userMap={userMap} />
 
       {topic.brief && (
-        <section className="bg-surface rounded-lg border border-border p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-2">
-            Brief
-          </h2>
-          <p className="text-sm leading-relaxed text-text">{topic.brief}</p>
+        <section className="bg-surface rounded-2xl border border-border p-5">
+          <h2 className="text-headline text-text mb-2">Brief</h2>
+          <p className="text-[15px] leading-relaxed text-text">{topic.brief}</p>
         </section>
       )}
 
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[11px] font-mono font-semibold uppercase tracking-[0.15em] text-text-subtle">
-            Material Links · {topic.sourceAssets.length}
-          </h2>
-        </div>
+        <h2 className="text-headline text-text mb-3 flex items-baseline gap-2">
+          {locale === "vi" ? "Tài liệu" : "Material links"}
+          <span className="text-text-subtle font-normal text-[14px] tabular-nums">
+            {topic.sourceAssets.length}
+          </span>
+        </h2>
         {topic.sourceAssets.length === 0 ? (
-          <p className="text-[13px] text-text-subtle italic px-4 py-3 bg-surface rounded border border-border">
-            No materials. Creator paste Drive/Dropbox link để team access.
+          <p className="text-[14px] text-text-subtle px-4 py-4 bg-surface rounded-2xl border border-border">
+            {locale === "vi"
+              ? "Chưa có tài liệu. Creator paste Drive/Dropbox link để team access."
+              : "No materials yet. Creator pastes Drive/Dropbox link so the team can access."}
           </p>
         ) : (
-          <div className="grid gap-2">
+          <div className="space-y-2">
             {topic.sourceAssets.map((asset) => (
               <a
                 key={asset.id}
                 href={asset.fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 px-3 py-2.5 bg-surface rounded border border-border hover:border-accent/50 transition-colors group"
+                className="flex items-center justify-between gap-3 px-4 py-2.5 bg-surface rounded-xl border border-border hover:bg-surface-hover transition-colors group"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <ExternalLink className="w-3.5 h-3.5 text-text-subtle group-hover:text-accent shrink-0" />
+                  <ExternalLink className="w-4 h-4 text-text-subtle group-hover:text-accent shrink-0" strokeWidth={1.75} />
                   <div className="min-w-0">
-                    <div className="text-[14px] font-medium truncate">
+                    <div className="text-[14px] font-medium truncate text-text">
                       {asset.fileName}
                     </div>
-                    <div className="text-[12px] font-mono text-text-subtle truncate">
+                    <div className="text-[13px] text-text-subtle truncate">
                       {asset.fileUrl}
                     </div>
                   </div>
                 </div>
-                <span className="text-[11px] font-mono text-text-subtle group-hover:text-accent shrink-0">
-                  OPEN →
+                <span className="text-[13px] text-text-subtle group-hover:text-accent shrink-0">
+                  {locale === "vi" ? "Mở" : "Open"} →
                 </span>
               </a>
             ))}
@@ -172,38 +173,38 @@ export default async function TopicDetailPage({
       </section>
 
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">
-          Deliverables
+        <h2 className="text-headline text-text mb-3">
+          {locale === "vi" ? "Sản phẩm" : "Deliverables"}
         </h2>
-        <div className="bg-surface rounded-lg border border-border overflow-hidden">
+        <div className="bg-surface rounded-2xl border border-border overflow-hidden">
           {topic.deliverables.map((deliverable, idx) => {
             const blockReason = getBlockReason(deliverable, blockDisplay, userMap);
             const isAired = deliverable.status === "aired";
             return (
               <div
                 key={deliverable.id}
-                className={`px-4 py-4 ${idx > 0 ? "border-t border-border" : ""}`}
+                className={`px-5 py-4 ${idx > 0 ? "border-t border-border" : ""}`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     {isAired ? (
-                      <CheckCircle2 className="w-4 h-4 text-success" />
+                      <CheckCircle2 className="w-4 h-4 text-accent" strokeWidth={1.75} />
                     ) : (
-                      <Clock className="w-4 h-4 text-text-subtle" />
+                      <Clock className="w-4 h-4 text-text-subtle" strokeWidth={1.75} />
                     )}
-                    <span className="text-sm font-medium">
+                    <span className="text-[15px] font-medium text-text">
                       {DELIVERABLE_TYPE_LABEL[deliverable.type]}
                     </span>
                     <DeliverableStatusBadge status={deliverable.status} />
                   </div>
                   {deliverable.airedAt && (
-                    <span className="text-xs text-text-muted">
-                      Aired {formatRelativeTime(deliverable.airedAt)}
+                    <span className="text-[13px] text-text-muted">
+                      {locale === "vi" ? "Đăng" : "Aired"} {formatRelativeTime(deliverable.airedAt)}
                     </span>
                   )}
                 </div>
 
-                <div className="space-y-1.5 ml-6">
+                <div className="space-y-2 ml-6.5">
                   {deliverable.channels.map((dc) => {
                     const channel = channelMap.get(dc.channelId);
                     if (!channel) return null;
@@ -213,7 +214,7 @@ export default async function TopicDetailPage({
                         className="flex items-center justify-between gap-3"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xs px-1.5 py-0.5 rounded border border-border bg-bg text-text-muted shrink-0">
+                          <span className="text-[12px] font-medium px-2 py-0.5 rounded-full bg-surface-elevated text-text-muted shrink-0">
                             {CHANNEL_LABEL[channel.platform]}
                           </span>
                           {dc.airedLink ? (
@@ -221,30 +222,28 @@ export default async function TopicDetailPage({
                               href={dc.airedLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-info hover:underline truncate"
+                              className="text-[13px] text-info hover:underline truncate"
                             >
                               {dc.airedLink}
                             </a>
                           ) : deliverable.status === "approved" ? (
                             <MarkAiredButton deliverableChannelId={dc.id} />
                           ) : (
-                            <span className="text-xs text-text-subtle italic">
-                              not yet aired
+                            <span className="text-[13px] text-text-subtle">
+                              {locale === "vi" ? "Chưa đăng" : "Not yet aired"}
                             </span>
                           )}
                         </div>
                         {dc.airedLink && (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <a
-                              href={dc.airedLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 text-text-muted hover:text-text"
-                              title="Open"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
+                          <a
+                            href={dc.airedLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors shrink-0"
+                            title="Open"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
                         )}
                       </div>
                     );
@@ -252,24 +251,24 @@ export default async function TopicDetailPage({
                 </div>
 
                 {blockReason && (
-                  <div className="mt-3 ml-6 text-xs text-text-muted italic">
-                    ⊙ {blockReason}
+                  <div className="mt-3 ml-6.5 text-[13px] text-text-muted">
+                    {blockReason}
                   </div>
                 )}
 
                 {deliverable.status === "review" && (
-                  <div className="mt-3 ml-6">
+                  <div className="mt-3 ml-6.5">
                     <Link
                       href={`/topics/${topic.id}/approve/${deliverable.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-warn-text text-white hover:bg-warn/80 transition-colors font-medium"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[13px] rounded-full bg-warn-bg text-warn hover:opacity-88 transition-opacity font-medium"
                     >
-                      Review on mobile →
+                      {locale === "vi" ? "Duyệt trên mobile" : "Review on mobile"} →
                     </Link>
                   </div>
                 )}
 
                 {!isAired && deliverable.tasks.length > 0 && (
-                  <div className="mt-3 ml-6">
+                  <div className="mt-3 ml-6.5">
                     <BulkTasksPanel
                       topicId={topic.id}
                       tasks={deliverable.tasks}

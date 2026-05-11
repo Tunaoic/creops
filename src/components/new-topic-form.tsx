@@ -113,115 +113,113 @@ export function NewTopicForm({ channels }: { channels: Channel[] }) {
           href="/"
           className="inline-flex items-center gap-1 text-[13px] text-text-muted hover:text-text mb-3"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
           Back to Dashboard
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">New Topic</h1>
+        <h1 className="text-title-2 text-text">New topic</h1>
       </div>
 
-      <div className="flex items-center gap-2 mb-5 text-[13px]">
+      <div className="flex items-center gap-3 mb-6 text-[14px]">
         <div
           className={cn(
-            "flex items-center gap-1.5",
+            "flex items-center gap-2",
             step === 1 ? "text-text font-medium" : "text-text-muted"
           )}
         >
           <span
             className={cn(
-              "w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-mono font-bold",
+              "w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-semibold",
               step === 1
                 ? "bg-accent text-accent-fg"
-                : "bg-success-bg text-success border border-success/40"
+                : "bg-success-bg text-success"
             )}
           >
             {step === 1 ? "1" : "✓"}
           </span>
-          Brief & Material
+          Brief & material
         </div>
-        <div className="w-8 h-px bg-border" />
+        <div className="w-10 h-px bg-border" />
         <div
           className={cn(
-            "flex items-center gap-1.5",
+            "flex items-center gap-2",
             step === 2 ? "text-text font-medium" : "text-text-muted"
           )}
         >
           <span
             className={cn(
-              "w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-mono font-bold",
+              "w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-semibold",
               step === 2
                 ? "bg-accent text-accent-fg"
-                : "bg-surface-elevated text-text-muted border border-border"
+                : "bg-surface-elevated text-text-muted"
             )}
           >
             2
           </span>
-          Pick Deliverables
+          Pick deliverables
         </div>
       </div>
 
       {step === 1 && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <label className="block text-[12px] font-mono uppercase tracking-wider text-text-subtle mb-1.5 font-semibold">
-              Topic Name
+            <label className="block text-[14px] font-medium text-text mb-2">
+              Topic name
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="vd: Thuế tăng 10%"
-              className="w-full px-3 py-2 rounded border border-border bg-surface text-[14px] focus:outline-none focus:border-accent"
+              placeholder="e.g. Tax increase 10%"
+              className="w-full px-3.5 py-2.5 text-[15px]"
             />
           </div>
 
           <div>
-            <label className="block text-[12px] font-mono uppercase tracking-wider text-text-subtle mb-1.5 font-semibold">
-              Brief{" "}
-              <span className="text-text-subtle/70 normal-case font-sans">
-                — what team needs to know
+            <label className="block text-[14px] font-medium text-text mb-2">
+              Brief
+              <span className="text-text-subtle font-normal ml-2">
+                What the team needs to know
               </span>
             </label>
             <textarea
               value={brief}
               onChange={(e) => setBrief(e.target.value)}
-              placeholder="Quay 1 take 12 phút về tác động lên SME. Phút 3 nhắc shop cafe Linh. Tone phân tích thẳng."
+              placeholder="Record one 12-min take on SME impact. At 3min, mention Linh's café. Analytical tone, blunt."
               rows={4}
-              className="w-full px-3 py-2 rounded border border-border bg-surface text-[13px] focus:outline-none focus:border-accent resize-none"
+              className="w-full px-3.5 py-2.5 text-[14px] resize-none"
             />
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[12px] font-mono uppercase tracking-wider text-text-subtle font-semibold">
-                Material Links{" "}
-                <span className="text-text-subtle/70 normal-case font-sans">
-                  — Drive / Dropbox / Notion folder where source video + images live
-                </span>
-              </label>
-            </div>
+            <label className="block text-[14px] font-medium text-text mb-2">
+              Material links
+              <span className="text-text-subtle font-normal ml-2">
+                Drive / Dropbox / Notion folder with source video + assets
+              </span>
+            </label>
 
-            <div className="bg-surface border border-border rounded p-3 space-y-2">
+            <div className="bg-surface border border-border rounded-xl p-3 space-y-2">
               {links.map((link, idx) => (
                 <div key={idx} className="flex items-center gap-2">
-                  <LinkIcon className="w-3.5 h-3.5 text-text-subtle shrink-0" />
+                  <LinkIcon className="w-4 h-4 text-text-subtle shrink-0" strokeWidth={1.75} />
                   <input
                     type="url"
                     value={link.url}
                     onChange={(e) => updateLink(idx, "url", e.target.value)}
                     placeholder="https://drive.google.com/drive/folders/..."
-                    className="flex-1 min-w-0 px-2 py-1.5 rounded border border-border bg-bg text-[13px] focus:outline-none focus:border-accent"
+                    className="flex-1 min-w-0 px-3 py-2 text-[14px]"
                   />
                   <input
                     type="text"
                     value={link.label}
                     onChange={(e) => updateLink(idx, "label", e.target.value)}
                     placeholder="label"
-                    className="w-32 px-2 py-1.5 rounded border border-border bg-bg text-[13px] focus:outline-none focus:border-accent"
+                    className="w-32 px-3 py-2 text-[14px]"
                   />
                   <button
                     type="button"
                     onClick={() => removeLink(idx)}
-                    className="p-1.5 text-text-subtle hover:text-warn rounded"
+                    className="p-2 rounded-full text-text-subtle hover:text-warn hover:bg-surface-hover transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

@@ -44,48 +44,50 @@ export function MembersClient({ initialUsers }: { initialUsers: User[] }) {
       <div>
         <Link
           href="/settings"
-          className="inline-flex items-center gap-1 text-[13px] text-text-muted hover:text-text mb-3"
+          className="inline-flex items-center gap-1.5 text-[14px] text-text-muted hover:text-text mb-4"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
           Back to Settings
         </Link>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Team Members
+            <h1 className="text-title-2 text-text flex items-center gap-2.5">
+              <Users className="w-6 h-6 text-text-muted" strokeWidth={1.5} />
+              Team members
             </h1>
-            <p className="text-[13px] text-text-muted mt-1">
-              {initialUsers.length} member{initialUsers.length !== 1 ? "s" : ""}{" "}
-              · solo OK · assign per-task ở topic
+            <p className="text-[14px] text-text-muted mt-1">
+              {initialUsers.length} {initialUsers.length === 1 ? "member" : "members"}
+              {" · "}assign per task in topic detail
             </p>
           </div>
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="btn-primary inline-flex items-center gap-1.5 px-3 py-2 rounded text-[13px]"
+            className="btn-primary inline-flex items-center gap-2 text-[14px]"
           >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-            Add Member
+            <Plus className="w-4 h-4" strokeWidth={2} />
+            Add member
           </button>
         </div>
       </div>
 
-
       {/* How assignment works */}
-      <div className="bg-info-bg/40 border border-info/30 rounded px-3 py-2.5 text-[12px] text-info">
-        <strong className="text-info">Solo OK.</strong>{" "}
+      <div className="bg-info-bg/60 rounded-2xl px-4 py-3 text-[13px] text-info">
+        <strong className="font-semibold">Solo is fine.</strong>{" "}
         <span className="text-info/85">
-          Tasks spawn unassigned. Pick assignee per-task ở topic detail (mỗi task có dropdown assign).
-          Role chỉ là label hiển thị, không enforce gì cả.
+          Tasks spawn unassigned. Pick an assignee per task in the topic detail. Roles
+          are display labels only — they don&apos;t restrict access.
         </span>
       </div>
 
       {/* Member list */}
-      <section className="bg-surface rounded border border-border overflow-hidden">
-        <div className="px-3 py-2 border-b border-border bg-bg/40 flex items-center justify-between">
-          <h2 className="text-[11px] font-mono font-semibold uppercase tracking-[0.15em] text-text-subtle">
-            Members · {initialUsers.length}
+      <section className="bg-surface rounded-2xl border border-border overflow-hidden">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <h2 className="text-headline text-text flex items-baseline gap-2">
+            Members
+            <span className="text-[14px] text-text-subtle font-normal tabular-nums">
+              {initialUsers.length}
+            </span>
           </h2>
         </div>
         <div className="divide-y divide-border">
@@ -108,21 +110,21 @@ export function MembersClient({ initialUsers }: { initialUsers: User[] }) {
             )
           )}
           {initialUsers.length === 0 && !adding && (
-            <div className="px-4 py-10 text-center">
-              <Users className="w-8 h-8 text-text-subtle/50 mx-auto mb-2" />
-              <p className="text-[14px] text-text-muted mb-1">
-                Workspace chưa có member nào
+            <div className="px-5 py-12 text-center">
+              <Users className="w-8 h-8 text-text-subtle mx-auto mb-3" strokeWidth={1.5} />
+              <p className="text-[15px] text-text mb-1">
+                No team members yet
               </p>
-              <p className="text-[12px] text-text-subtle mb-4">
-                Add từng người với name + email + role để bắt đầu giao task.
+              <p className="text-[13px] text-text-muted mb-5 max-w-xs mx-auto">
+                Add each person with a name, email, and role to start assigning tasks.
               </p>
               <button
                 type="button"
                 onClick={() => setAdding(true)}
-                className="btn-primary inline-flex items-center gap-1.5 px-3 py-2 rounded text-[13px]"
+                className="btn-primary inline-flex items-center gap-2 text-[14px]"
               >
-                <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-                Add First Member
+                <Plus className="w-4 h-4" strokeWidth={2} />
+                Add first member
               </button>
             </div>
           )}
