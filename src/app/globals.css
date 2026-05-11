@@ -1,26 +1,401 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ============================================================================
+   Cowork themes
+   - DARK (default): terminal × Linear × cyberpunk
+   - LIGHT: warm paper, soft contrast, same lime accent
+   Font: Geist Sans + Geist Mono (Vercel)
+   ============================================================================ */
+
+/* ─── DARK theme (default) ────────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  /* Base — true black background, layered surfaces */
+  --bg: #08090a;
+  --surface: #101113;
+  --surface-hover: #18191c;
+  --surface-elevated: #1c1d20;
+  --border: #1f2024;
+  --border-strong: #2a2b30;
+  --border-accent: #353740;
+
+  /* Text */
+  --text: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-subtle: #71717a;
+
+  /* Accent — electric lime */
+  --accent: #bef264;
+  --accent-hover: #d9f99d;
+  --accent-fg: #0a0b00;
+  --accent-glow: rgba(190, 242, 100, 0.18);
+
+  /* Status */
+  --warn: #fbbf24;
+  --warn-bg: rgba(251, 191, 36, 0.1);
+  --warn-border: rgba(251, 191, 36, 0.3);
+  --warn-text: #fbbf24;
+  --warn-fg: #1a1300;
+
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.1);
+
+  --info: #60a5fa;
+  --info-bg: rgba(96, 165, 250, 0.1);
+
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.1);
+
+  /* Ambient texture intensity */
+  --grid-line: rgba(255, 255, 255, 0.012);
+  --glow-1: rgba(190, 242, 100, 0.05);
+  --glow-2: rgba(96, 165, 250, 0.04);
+  --scan-line: rgba(190, 242, 100, 0.4);
+
+  /* Effects */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 0 1px var(--border-accent), 0 4px 16px rgba(0, 0, 0, 0.7);
+  --shadow-accent: 0 0 0 1px var(--accent-glow), 0 0 24px var(--accent-glow);
+
+  color-scheme: dark;
+}
+
+/* ─── LIGHT theme ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  /* Warm paper neutrals */
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --surface-hover: #f5f5f4;
+  --surface-elevated: #fafaf9;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --border-accent: #a8a29e;
+
+  /* Text — warm dark stone */
+  --text: #1c1917;
+  --text-muted: #57534e;
+  --text-subtle: #a8a29e;
+
+  /* Accent — darker lime for AAA contrast on white */
+  --accent: #65a30d;
+  --accent-hover: #4d7c0f;
+  --accent-fg: #ffffff;
+  --accent-glow: rgba(101, 163, 13, 0.18);
+
+  /* Status — slightly desaturated for light bg */
+  --warn: #b45309;
+  --warn-bg: rgba(180, 83, 9, 0.08);
+  --warn-border: rgba(180, 83, 9, 0.3);
+  --warn-text: #b45309;
+  --warn-fg: #ffffff;
+
+  --success: #15803d;
+  --success-bg: rgba(21, 128, 61, 0.08);
+
+  --info: #2563eb;
+  --info-bg: rgba(37, 99, 235, 0.08);
+
+  --danger: #b91c1c;
+  --danger-bg: rgba(185, 28, 28, 0.08);
+
+  /* Light texture — barely-there grid, soft warm glow */
+  --grid-line: rgba(28, 25, 23, 0.025);
+  --glow-1: rgba(101, 163, 13, 0.04);
+  --glow-2: rgba(37, 99, 235, 0.03);
+  --scan-line: rgba(101, 163, 13, 0.5);
+
+  /* Softer shadows on light bg */
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.06);
+  --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.08);
+  --shadow-glow: 0 0 0 1px var(--border-accent), 0 4px 16px rgba(28, 25, 23, 0.1);
+  --shadow-accent: 0 0 0 1px var(--accent-glow), 0 0 24px var(--accent-glow);
+
+  color-scheme: light;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-accent: var(--border-accent);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-glow: var(--accent-glow);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-border: var(--warn-border);
+  --color-warn-text: var(--warn-text);
+  --color-warn-fg: var(--warn-fg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+
+  /* Geist variable fonts (loaded via next/font in layout.tsx) */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ============================================================================
+   GLOBAL TYPOGRAPHY — heavier weights, tighter tracking, tabular numerals
+   ============================================================================ */
+
+html {
+  font-size: 15px;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-weight: 450;
+  font-feature-settings:
+    "ss01" 1, /* alternate single-story g */
+    "ss03" 1, /* zero with slash */
+    "cv11" 1; /* alternate i */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.005em;
+}
+
+/* Strong weight defaults */
+strong,
+b {
+  font-weight: 600;
+}
+
+/* Tighten headings */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+h1 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+/* All-caps labels — wider spacing, mono */
+.label-caps {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+/* ============================================================================
+   AMBIENT TEXTURE — subtle grid + glow + scan
+   ============================================================================ */
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    /* fine grid */
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px),
+    /* corner glows */
+    radial-gradient(circle at 15% 0%, var(--glow-1), transparent 45%),
+    radial-gradient(circle at 85% 100%, var(--glow-2), transparent 45%);
+  background-size: 32px 32px, 32px 32px, 100% 100%, 100% 100%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Subtle horizontal scan line — top of viewport */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--scan-line) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.5;
+}
+
+* {
+  border-color: var(--border);
+}
+
+/* ============================================================================
+   ELEMENTS
+   ============================================================================ */
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Scrollbar — flat, minimal */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 0;
+  border: 3px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-subtle);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+input,
+textarea,
+select {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  font-weight: 450;
+  font-family: var(--font-sans);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-subtle) !important;
+  font-weight: 400;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px var(--accent-glow) !important;
+}
+
+/* Mono numerics + code */
+code,
+pre,
+kbd,
+.font-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "calt" 0;
+  font-weight: 500;
+}
+
+kbd {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  box-shadow: 0 1px 0 var(--border-strong);
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+/* Glow on hover for accent surfaces */
+.glow-accent {
+  position: relative;
+  transition: all 0.15s ease;
+}
+.glow-accent:hover {
+  box-shadow: var(--shadow-accent);
+  border-color: var(--accent);
+}
+
+/* Inset border (for dense card stacks) */
+.inset-border {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Decorated horizontal divider — terminal-like */
+.divider-tech {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.divider-tech::before,
+.divider-tech::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
+}
+
+/* Pulse animation for active indicators */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--accent-glow);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+    opacity: 0.7;
   }
 }
+.pulse-dot {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Tabular nums utility */
+.nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ============================================================================
+   BUTTONS — sharper, denser
+   ============================================================================ */
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
+  color: var(--accent-fg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: all 0.12s ease;
+  position: relative;
+}
+.btn-primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 3px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.btn-primary:active {
+  transform: translateY(0.5px);
 }
