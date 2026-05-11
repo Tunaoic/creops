@@ -114,6 +114,7 @@ export interface Task {
   templateItemKey: string;
   channelId?: string;
   assigneeIds: string[];
+  watcherIds: string[];
   dueDate?: string;
   status: TaskStatus;
   outputType: TaskOutputType;
@@ -142,6 +143,7 @@ export interface Topic {
   brief?: string;
   status: TopicStatus;
   targetPublishDate?: string;
+  watcherIds: string[];
   createdAt: string;
   sourceAssets: SourceAsset[];
   deliverables: Deliverable[];

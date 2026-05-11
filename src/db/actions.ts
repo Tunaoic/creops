@@ -44,6 +44,81 @@ export async function switchToUser(userId: string | null): Promise<void> {
 }
 
 // ============================================================================
+// Watchers — opt-in subscription to a topic or task
+// ============================================================================
+
+/**
+ * Add a user to the watcher list of a topic or a task. Watchers receive
+ * a copy of every progress notification (submit/approve/reject/aired) on
+ * the target. Idempotent — calling twice with the same userId is a no-op.
+ */
+export async function addWatcher(
+  target: "topic" | "task",
+  targetId: string,
+  userId: string
+): Promise<void> {
+  if (target === "topic") {
+    const row = db.select({ watcherIds: schema.topics.watcherIds })
+      .from(schema.topics).where(eq(schema.topics.id, targetId)).get();
+    const current = (row?.watcherIds as string[]) ?? [];
+    if (current.includes(userId)) return;
+    db.update(schema.topics)
+      .set({ watcherIds: [...current, userId] })
+      .where(eq(schema.topics.id, targetId))
+      .run();
+    revalidateAfterProgress(targetId);
+  } else {
+    const row = db.select({ watcherIds: schema.tasks.watcherIds, deliverableId: schema.tasks.deliverableId })
+      .from(schema.tasks).where(eq(schema.tasks.id, targetId)).get();
+    if (!row) return;
+    const current = (row.watcherIds as string[]) ?? [];
+    if (current.includes(userId)) return;
+    db.update(schema.tasks)
+      .set({ watcherIds: [...current, userId] })
+      .where(eq(schema.tasks.id, targetId))
+      .run();
+    const topic = db.select({ topicId: schema.deliverables.topicId })
+      .from(schema.deliverables)
+      .where(eq(schema.deliverables.id, row.deliverableId))
+      .get();
+    revalidateAfterProgress(topic?.topicId);
+  }
+}
+
+export async function removeWatcher(
+  target: "topic" | "task",
+  targetId: string,
+  userId: string
+): Promise<void> {
+  if (target === "topic") {
+    const row = db.select({ watcherIds: schema.topics.watcherIds })
+      .from(schema.topics).where(eq(schema.topics.id, targetId)).get();
+    const current = (row?.watcherIds as string[]) ?? [];
+    if (!current.includes(userId)) return;
+    db.update(schema.topics)
+      .set({ watcherIds: current.filter((id) => id !== userId) })
+      .where(eq(schema.topics.id, targetId))
+      .run();
+    revalidateAfterProgress(targetId);
+  } else {
+    const row = db.select({ watcherIds: schema.tasks.watcherIds, deliverableId: schema.tasks.deliverableId })
+      .from(schema.tasks).where(eq(schema.tasks.id, targetId)).get();
+    if (!row) return;
+    const current = (row.watcherIds as string[]) ?? [];
+    if (!current.includes(userId)) return;
+    db.update(schema.tasks)
+      .set({ watcherIds: current.filter((id) => id !== userId) })
+      .where(eq(schema.tasks.id, targetId))
+      .run();
+    const topic = db.select({ topicId: schema.deliverables.topicId })
+      .from(schema.deliverables)
+      .where(eq(schema.deliverables.id, row.deliverableId))
+      .get();
+    revalidateAfterProgress(topic?.topicId);
+  }
+}
+
+// ============================================================================
 // Language preference (i18n)
 // ============================================================================
 
@@ -220,7 +295,7 @@ export async function createTopic(input: {
     metadata: { name: input.name },
   });
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   revalidatePath("/topics");
   return { topicId };
 }
@@ -399,9 +474,7 @@ export async function assignTask(
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, task.deliverableId))
       .get();
-    revalidatePath("/");
-    revalidatePath("/inbox");
-    if (topic) revalidatePath(`/topics/${topic.topicId}`);
+    revalidateAfterProgress(topic?.topicId);
   }
 }
 
@@ -425,39 +498,50 @@ export async function submitTask(taskId: string, output: unknown): Promise<void>
     targetId: taskId,
   });
 
-  // Notify topic creator about pending review
-  const creatorId = getCreatorOfTask(taskId);
   const submittedTask = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  if (creatorId && submittedTask) {
+  if (submittedTask) {
     const deliverable = db
       .select()
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, submittedTask.deliverableId))
       .get();
-    notify({
-      userId: creatorId,
-      event: "deliverable_ready_for_review",
-      topicId: deliverable?.topicId,
+    const topicId = deliverable?.topicId;
+    // Fan out to creator + topic watchers + task watchers
+    const stakeholders = getStakeholders(topicId, taskId);
+    await notifyMany(stakeholders, {
+      event: "task_submitted",
+      topicId,
       deliverableId: submittedTask.deliverableId,
       taskId,
       payload: { templateItemKey: submittedTask.templateItemKey },
     });
-  }
 
-  const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  if (task) {
-    await maybeRollUpDeliverableStatus(task.deliverableId);
-    revalidatePath("/");
-    const topic = db
-      .select({ topicId: schema.deliverables.topicId })
+    const wasReviewBefore = deliverable?.status === "review";
+    await maybeRollUpDeliverableStatus(submittedTask.deliverableId);
+    // If this submission flipped the deliverable into "review", emit the
+    // deliverable-level event too — bigger signal for the creator.
+    const after = db
+      .select()
       .from(schema.deliverables)
-      .where(eq(schema.deliverables.id, task.deliverableId))
+      .where(eq(schema.deliverables.id, submittedTask.deliverableId))
       .get();
-    if (topic) revalidatePath(`/topics/${topic.topicId}`);
+    if (after?.status === "review" && !wasReviewBefore) {
+      await notifyMany(stakeholders, {
+        event: "deliverable_ready_for_review",
+        topicId,
+        deliverableId: submittedTask.deliverableId,
+      });
+    }
+
+    revalidateAfterProgress(topicId);
   }
 }
 
 export async function approveTask(taskId: string): Promise<void> {
+  // Capture assignees BEFORE update (still need them after status change)
+  const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+  const assigneesBefore = (before?.assigneeIds as string[]) ?? [];
+
   db.update(schema.tasks)
     .set({ status: "approved", approvedAt: new Date() })
     .where(eq(schema.tasks.id, taskId))
@@ -471,14 +555,28 @@ export async function approveTask(taskId: string): Promise<void> {
 
   const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
   if (task) {
-    await maybeRollUpDeliverableStatus(task.deliverableId);
-    revalidatePath("/");
-    const topic = db
-      .select({ topicId: schema.deliverables.topicId })
+    const deliverable = db
+      .select()
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, task.deliverableId))
       .get();
-    if (topic) revalidatePath(`/topics/${topic.topicId}`);
+    const topicId = deliverable?.topicId;
+
+    // Notify the assignees (their work was approved) + watchers
+    const stakeholders = [
+      ...assigneesBefore,
+      ...getStakeholders(topicId, taskId),
+    ];
+    await notifyMany(stakeholders, {
+      event: "task_approved",
+      topicId,
+      deliverableId: task.deliverableId,
+      taskId,
+      payload: { templateItemKey: task.templateItemKey },
+    });
+
+    await maybeRollUpDeliverableStatus(task.deliverableId);
+    revalidateAfterProgress(topicId);
   }
 }
 
@@ -495,25 +593,27 @@ export async function rejectTask(taskId: string, reason: string): Promise<void> 
     metadata: { reason },
   });
 
-  // Notify all assignees about rejection
   const rejectedTask = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
   const rejectedAssignees = (rejectedTask?.assigneeIds as string[]) ?? [];
-  if (rejectedAssignees.length > 0 && rejectedTask) {
+  if (rejectedTask) {
     const deliverable = db
       .select()
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, rejectedTask.deliverableId))
       .get();
-    for (const userId of rejectedAssignees) {
-      notify({
-        userId,
-        event: "task_rejected",
-        topicId: deliverable?.topicId,
-        deliverableId: rejectedTask.deliverableId,
-        taskId,
-        payload: { reason, templateItemKey: rejectedTask.templateItemKey },
-      });
-    }
+    const topicId = deliverable?.topicId;
+    // Notify assignees (their submission was rejected) + watchers
+    const stakeholders = [
+      ...rejectedAssignees,
+      ...getStakeholders(topicId, taskId),
+    ];
+    await notifyMany(stakeholders, {
+      event: "task_rejected",
+      topicId,
+      deliverableId: rejectedTask.deliverableId,
+      taskId,
+      payload: { reason, templateItemKey: rejectedTask.templateItemKey },
+    });
   }
 
   const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
@@ -522,13 +622,12 @@ export async function rejectTask(taskId: string, reason: string): Promise<void> 
       .set({ status: "in_progress", approvedAt: null })
       .where(eq(schema.deliverables.id, task.deliverableId))
       .run();
-    revalidatePath("/");
     const topic = db
       .select({ topicId: schema.deliverables.topicId })
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, task.deliverableId))
       .get();
-    if (topic) revalidatePath(`/topics/${topic.topicId}`);
+    revalidateAfterProgress(topic?.topicId);
   }
 }
 
@@ -559,8 +658,23 @@ export async function approveDeliverable(
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, deliverableId))
     .get();
-  revalidatePath("/");
-  if (topic) revalidatePath(`/topics/${topic.topicId}`);
+  // Notify watchers + creator that the deliverable just got reviewed.
+  // Read final status — could be "approved" (all approved) or back to
+  // "in_progress" (some rejected).
+  const after = db
+    .select()
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, deliverableId))
+    .get();
+  if (after?.status === "approved") {
+    const stakeholders = getStakeholders(topic?.topicId, null);
+    await notifyMany(stakeholders, {
+      event: "deliverable_approved",
+      topicId: topic?.topicId,
+      deliverableId,
+    });
+  }
+  revalidateAfterProgress(topic?.topicId);
 }
 
 // ============================================================================
@@ -596,20 +710,14 @@ export async function markChannelAired(
       .where(eq(schema.deliverables.id, dcRow.deliverableId))
       .get();
     if (deliv) {
-      const topic = db
-        .select({ creatorId: schema.topics.creatorId })
-        .from(schema.topics)
-        .where(eq(schema.topics.id, deliv.topicId))
-        .get();
-      if (topic?.creatorId) {
-        notify({
-          userId: topic.creatorId,
-          event: "deliverable_aired",
-          topicId: deliv.topicId,
-          deliverableId: dcRow.deliverableId,
-          payload: { link: airedLink },
-        });
-      }
+      // Fan out aired event to creator + topic watchers
+      const stakeholders = getStakeholders(deliv.topicId, null);
+      await notifyMany(stakeholders, {
+        event: "deliverable_aired",
+        topicId: deliv.topicId,
+        deliverableId: dcRow.deliverableId,
+        payload: { link: airedLink },
+      });
     }
   }
 
@@ -631,13 +739,12 @@ export async function markChannelAired(
         .run();
       await maybeRollUpTopicStatus(dc.deliverableId);
     }
-    revalidatePath("/");
     const topic = db
       .select({ topicId: schema.deliverables.topicId })
       .from(schema.deliverables)
       .where(eq(schema.deliverables.id, dc.deliverableId))
       .get();
-    if (topic) revalidatePath(`/topics/${topic.topicId}`);
+    revalidateAfterProgress(topic?.topicId);
   }
 }
 
@@ -711,7 +818,7 @@ export async function updateWorkspaceSettings(input: {
     .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
     .run();
   revalidatePath("/settings");
-  revalidatePath("/");
+  revalidatePath("/", "layout");
 }
 
 export async function updateChannelStyleGuide(input: {
@@ -761,7 +868,7 @@ export async function markNotificationRead(notificationId: string): Promise<void
     .set({ readAt: new Date() })
     .where(eq(schema.notifications.id, notificationId))
     .run();
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   revalidatePath("/notifications");
 }
 
@@ -777,7 +884,7 @@ export async function markAllNotificationsRead(): Promise<void> {
       )
     )
     .run();
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   revalidatePath("/notifications");
 }
 
@@ -811,16 +918,21 @@ async function logActivity(input: {
 // Notifications — fire-and-forget delivery
 // ============================================================================
 
+type NotifyEvent =
+  | "tasks_assigned"
+  | "task_submitted"
+  | "task_approved"
+  | "task_rejected"
+  | "deliverable_ready_for_review"
+  | "deliverable_approved"
+  | "deliverable_aired"
+  | "mentioned"
+  | "transcribe_done"
+  | "cut_suggestions_ready";
+
 async function notify(input: {
   userId: string | null;
-  event:
-    | "tasks_assigned"
-    | "task_rejected"
-    | "deliverable_ready_for_review"
-    | "deliverable_aired"
-    | "mentioned"
-    | "transcribe_done"
-    | "cut_suggestions_ready";
+  event: NotifyEvent;
   topicId?: string;
   deliverableId?: string;
   taskId?: string;
@@ -837,14 +949,84 @@ async function notify(input: {
       topicId: input.topicId,
       deliverableId: input.deliverableId,
       taskId: input.taskId,
-      // Stash the actor that triggered this notification so the UI can show
-      // a real name instead of "Someone". Schema has no actor_id column yet,
-      // so this lives in payload — cheap and back-compat.
+      // Stash actor in payload so UI shows real name (no actor_id column).
       payload: { ...(input.payload ?? {}), actorId: actor },
     }).run();
   } catch (e) {
     console.error("[notify] failed:", e);
   }
+}
+
+/**
+ * Fan-out notify to a list of users — dedupes + skips self.
+ * Use this anywhere a progress event has multiple stakeholders
+ * (creator, assignees, watchers).
+ */
+async function notifyMany(
+  userIds: Array<string | null | undefined>,
+  base: Omit<Parameters<typeof notify>[0], "userId">
+): Promise<void> {
+  const seen = new Set<string>();
+  for (const uid of userIds) {
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    await notify({ ...base, userId: uid });
+  }
+}
+
+/**
+ * Resolve all stakeholders for a task event:
+ * - Topic creator
+ * - Topic-level watchers
+ * - Task-level watchers
+ * - (optionally) the task's current assignees
+ *
+ * Used to fan out task_submitted / task_approved / task_rejected /
+ * deliverable_* events. Returns deduped userIds (filter happens in
+ * notifyMany via the seen-set).
+ */
+function getStakeholders(
+  topicId: string | null | undefined,
+  taskId: string | null | undefined,
+  opts: { includeAssignees?: boolean } = {}
+): string[] {
+  const out: string[] = [];
+  if (topicId) {
+    const t = db
+      .select({ creatorId: schema.topics.creatorId, watcherIds: schema.topics.watcherIds })
+      .from(schema.topics)
+      .where(eq(schema.topics.id, topicId))
+      .get();
+    if (t?.creatorId) out.push(t.creatorId);
+    if (t?.watcherIds) out.push(...((t.watcherIds as string[]) ?? []));
+  }
+  if (taskId) {
+    const tk = db
+      .select({
+        watcherIds: schema.tasks.watcherIds,
+        assigneeIds: schema.tasks.assigneeIds,
+      })
+      .from(schema.tasks)
+      .where(eq(schema.tasks.id, taskId))
+      .get();
+    if (tk?.watcherIds) out.push(...((tk.watcherIds as string[]) ?? []));
+    if (opts.includeAssignees && tk?.assigneeIds) {
+      out.push(...((tk.assigneeIds as string[]) ?? []));
+    }
+  }
+  return out;
+}
+
+/**
+ * Standard revalidation after any progress event:
+ * - layout (refreshes TopBar NotificationsBell + Sidebar counts)
+ * - inbox + dashboard
+ * - the specific topic page if known
+ */
+function revalidateAfterProgress(topicId?: string | null) {
+  revalidatePath("/", "layout");
+  revalidatePath("/inbox");
+  if (topicId) revalidatePath(`/topics/${topicId}`);
 }
 
 function getCreatorOfTask(taskId: string): string | null {

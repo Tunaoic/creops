@@ -22,6 +22,8 @@ import {
   getActivityForTopic,
 } from "@/db/queries";
 import { TopicPipeline } from "@/components/topic-pipeline";
+import { WatchersPanel } from "@/components/watchers-panel";
+import { getLocale } from "@/lib/i18n";
 import { CHANNEL_LABEL, DELIVERABLE_TYPE_LABEL } from "@/types";
 import {
   DeliverableStatusBadge,
@@ -50,7 +52,7 @@ export default async function TopicDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [topic, channels, users, currentUser, settings, comments, activity] =
+  const [topic, channels, users, currentUser, settings, comments, activity, locale] =
     await Promise.all([
       getTopicById(id),
       getAllChannels(),
@@ -59,6 +61,7 @@ export default async function TopicDetailPage({
       getWorkspaceSettings(),
       getCommentsForTarget("topic", id),
       getActivityForTopic(id, 30),
+      getLocale(),
     ]);
   if (!topic) notFound();
 
@@ -71,32 +74,46 @@ export default async function TopicDetailPage({
   // Map deliverable channels to junction IDs (need to query DB for IDs since type doesn't include them)
   // For now derive from channel positions in array since each deliverable_channel maps 1-1
   return (
-    <div className="max-w-5xl mx-auto px-6 py-5 space-y-5">
+    <div className="max-w-5xl mx-auto px-8 py-7 space-y-6">
       <div>
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-text mb-3"
+          className="inline-flex items-center gap-1.5 text-[14px] text-text-muted hover:text-text mb-4"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
+          <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
+          {locale === "vi" ? "Quay lại Tổng quan" : "Back to Dashboard"}
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold mb-2">{topic.name}</h1>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-text-muted">
+            <h1 className="text-title-2 text-text mb-3">{topic.name}</h1>
+            <div className="flex flex-wrap items-center gap-2 text-[14px] text-text-muted">
               <TopicStatusBadge status={topic.status} />
-              <span>•</span>
-              <span>
-                {aired}/{total} deliverables aired
+              <span className="text-text-subtle">·</span>
+              <span className="tabular-nums">
+                {aired}/{total} {locale === "vi" ? "đã đăng" : "deliverables aired"}
               </span>
               {topic.targetPublishDate && (
                 <>
-                  <span>•</span>
-                  <span>Due {formatDate(topic.targetPublishDate)}</span>
+                  <span className="text-text-subtle">·</span>
+                  <span>{locale === "vi" ? "Hạn" : "Due"} {formatDate(topic.targetPublishDate)}</span>
                 </>
               )}
-              <span>•</span>
-              <span>by {(topic.creatorId && userMap.get(topic.creatorId)?.name) || "—"}</span>
+              {topic.creatorId && userMap.get(topic.creatorId) && (
+                <>
+                  <span className="text-text-subtle">·</span>
+                  <span>{locale === "vi" ? "Bởi" : "By"} {userMap.get(topic.creatorId)?.name}</span>
+                </>
+              )}
+            </div>
+            <div className="mt-4">
+              <WatchersPanel
+                target="topic"
+                targetId={topic.id}
+                watcherIds={topic.watcherIds}
+                members={users}
+                currentUserId={currentUser.id}
+                locale={locale}
+              />
             </div>
           </div>
           <AddDeliverableButton topicId={topic.id} />

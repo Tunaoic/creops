@@ -16,6 +16,8 @@ import { TaskGenericView } from "@/components/task-views/generic";
 import { AssigneePicker } from "@/components/assignee-picker";
 import { CommentThread } from "@/components/comment-thread";
 import { TaskStatusBadge } from "@/components/status-badge";
+import { WatchersPanel } from "@/components/watchers-panel";
+import { getLocale } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +27,12 @@ export default async function TaskDetailPage({
   params: Promise<{ id: string; taskId: string }>;
 }) {
   const { id, taskId } = await params;
-  const [topic, allUsers, currentUser, comments] = await Promise.all([
+  const [topic, allUsers, currentUser, comments, locale] = await Promise.all([
     getTopicById(id),
     getAllUsers(),
     getCurrentUser(),
     getCommentsForTarget("task", taskId),
+    getLocale(),
   ]);
   if (!topic) notFound();
 
@@ -113,30 +116,38 @@ export default async function TaskDetailPage({
               {channel && ` / ${CHANNEL_LABEL[channel.platform]}`}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-semibold capitalize">
+              <h1 className="text-title-3 capitalize">
                 {foundTask.templateItemKey.replace(/_/g, " ")}
               </h1>
               <TaskStatusBadge status={foundTask.status} />
               {isAssignedToMe && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-accent/40 bg-accent/10 text-accent">
-                  <UserCheck className="w-3 h-3" />
-                  ASSIGNED TO YOU
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-0.5 rounded-full bg-accent/10 text-accent">
+                  <UserCheck className="w-3 h-3" strokeWidth={1.75} />
+                  {locale === "vi" ? "Giao cho bạn" : "Assigned to you"}
                 </span>
               )}
               {isCreator && !isAssignedToMe && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-info/40 bg-info-bg text-info">
-                  <Sparkles className="w-3 h-3" />
-                  YOU&apos;RE THE CREATOR
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-0.5 rounded-full bg-info-bg text-info">
+                  <Sparkles className="w-3 h-3" strokeWidth={1.75} />
+                  {locale === "vi" ? "Bạn là creator" : "You're the creator"}
                 </span>
               )}
             </div>
           </div>
-          <div className="text-right text-xs text-text-muted space-y-1.5">
+          <div className="text-right space-y-2 shrink-0">
+            <AssigneePicker
+              taskId={foundTask.id}
+              currentAssigneeIds={foundTask.assigneeIds}
+              members={allUsers}
+            />
             <div>
-              <AssigneePicker
-                taskId={foundTask.id}
-                currentAssigneeIds={foundTask.assigneeIds}
+              <WatchersPanel
+                target="task"
+                targetId={foundTask.id}
+                watcherIds={foundTask.watcherIds}
                 members={allUsers}
+                currentUserId={currentUser.id}
+                locale={locale}
               />
             </div>
           </div>

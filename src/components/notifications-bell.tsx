@@ -20,9 +20,12 @@ import type { NotificationEntry } from "@/db/queries";
 import { formatRelativeTime, cn } from "@/lib/utils";
 
 const EVENT_LABEL: Record<string, string> = {
-  tasks_assigned: "assigned a task",
-  task_rejected: "rejected your task",
-  deliverable_ready_for_review: "submitted a task — review needed",
+  tasks_assigned: "assigned a task to you",
+  task_submitted: "submitted a task",
+  task_approved: "approved your task",
+  task_rejected: "needs changes on your task",
+  deliverable_ready_for_review: "submitted a deliverable for review",
+  deliverable_approved: "approved a deliverable",
   deliverable_aired: "marked aired",
   mentioned: "mentioned you",
   transcribe_done: "transcribe completed",
@@ -31,8 +34,11 @@ const EVENT_LABEL: Record<string, string> = {
 
 const EVENT_ICON: Record<string, typeof Bell> = {
   tasks_assigned: CircleDot,
+  task_submitted: Send,
+  task_approved: Sparkles,
   task_rejected: AlertCircle,
   deliverable_ready_for_review: Send,
+  deliverable_approved: Sparkles,
   deliverable_aired: Sparkles,
   mentioned: Bell,
 };

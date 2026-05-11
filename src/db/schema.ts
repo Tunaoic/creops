@@ -96,6 +96,12 @@ export const topics = sqliteTable("topics", {
   brief: text("brief"),
   status: text("status").notNull().default("draft"),
   targetPublishDate: text("target_publish_date"),
+  // Users who get notified of every progress event on this topic.
+  // Optional — empty by default. Creator is implicitly always notified.
+  watcherIds: text("watcher_ids", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'`),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -165,6 +171,12 @@ export const tasks = sqliteTable("tasks", {
   templateItemKey: text("template_item_key").notNull(),
   channelId: text("channel_id").references(() => channels.id),
   assigneeIds: text("assignee_ids", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'`),
+  // Users who follow this specific task (in addition to topic-level watchers).
+  // Get notified on every status change. Optional, empty by default.
+  watcherIds: text("watcher_ids", { mode: "json" })
     .$type<string[]>()
     .notNull()
     .default(sql`'[]'`),
