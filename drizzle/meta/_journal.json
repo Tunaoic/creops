@@ -15,6 +15,13 @@
       "when": 1778497652532,
       "tag": "0001_gifted_tempest",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778509635740,
+      "tag": "0002_glossy_vance_astro",
+      "breakpoints": true
     }
   ]
 }

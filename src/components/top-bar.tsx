@@ -18,6 +18,7 @@ export function TopBar({
   members,
   currentUserId,
   locale,
+  showImpersonator = true,
 }: {
   topicNames: Record<string, string>;
   notifications: NotificationEntry[];
@@ -25,6 +26,8 @@ export function TopBar({
   members: User[];
   currentUserId: string;
   locale: Locale;
+  /** False in production (Clerk auth on) — hides the dev impersonation switcher. */
+  showImpersonator?: boolean;
 }) {
   const searchLabel = locale === "vi" ? "Tìm kiếm" : "Search";
   const helpLabel = locale === "vi" ? "Trợ giúp" : "Help";
@@ -87,7 +90,9 @@ export function TopBar({
 
       {/* Right cluster */}
       <div className="flex items-center gap-2 shrink-0">
-        <UserSwitcher members={members} currentUserId={currentUserId} />
+        {showImpersonator && (
+          <UserSwitcher members={members} currentUserId={currentUserId} />
+        )}
         <button
           type="button"
           onClick={() => {

@@ -25,6 +25,10 @@ export const users = sqliteTable("users", {
   workspaceId: text("workspace_id")
     .notNull()
     .references(() => workspaces.id, { onDelete: "cascade" }),
+  // Maps to Clerk's user ID (e.g. "user_2abc..."). Null for legacy users
+  // created via the dev-mode impersonation flow before auth was wired.
+  // Set on signup via Clerk webhook /api/webhooks/clerk.
+  clerkUserId: text("clerk_user_id").unique(),
   name: text("name").notNull(),
   email: text("email").notNull(),
   avatarUrl: text("avatar_url"),

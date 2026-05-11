@@ -119,6 +119,24 @@ export async function removeWatcher(
 }
 
 // ============================================================================
+// Workspace management
+// ============================================================================
+
+export async function renameWorkspace(
+  workspaceId: string,
+  name: string
+): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  db.update(schema.workspaces)
+    .set({ name: trimmed })
+    .where(eq(schema.workspaces.id, workspaceId))
+    .run();
+  revalidatePath("/", "layout");
+  revalidatePath("/settings");
+}
+
+// ============================================================================
 // Language preference (i18n)
 // ============================================================================
 
