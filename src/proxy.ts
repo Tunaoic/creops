@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Edge middleware — runs on every request before routing.
+ * Edge proxy — runs on every request before routing.
+ * (Next 16 renamed `middleware.ts` → `proxy.ts`. Same behaviour.)
  *
  * MODE A (Clerk keys set in env):
  *   Enforces auth via Clerk for every route except sign-in / sign-up /
@@ -13,7 +14,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * Lazy-import @clerk/nextjs only in MODE A so the dev experience stays
  * zero-dependency for contributors who don't want to set up Clerk yet.
  */
-export default async function middleware(req: NextRequest) {
+export default async function proxy(req: NextRequest) {
   const clerkEnabled = Boolean(
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
       process.env.CLERK_SECRET_KEY

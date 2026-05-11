@@ -1,7 +1,12 @@
 # CreOps — Content Workflow Platform
 
-Real working app with SQLite persistence. Every action **saves for real** — refresh,
-restart, the data stays.
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FOWNER%2FREPO&env=NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,CLERK_SECRET_KEY,CLERK_WEBHOOK_SECRET,DATABASE_URL,DATABASE_AUTH_TOKEN&envDescription=See%20DEPLOY.md%20for%20how%20to%20provision%20each%20service&envLink=https%3A%2F%2Fgithub.com%2FOWNER%2FREPO%2Fblob%2Fmain%2FDEPLOY.md)
+
+Real working app with SQLite persistence locally + libsql/Turso for production.
+Every action **saves for real** — refresh, restart, the data stays.
+
+> Replace `OWNER/REPO` in the badges above after pushing to GitHub.
 
 ## Requirements
 
