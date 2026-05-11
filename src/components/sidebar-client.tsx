@@ -30,7 +30,7 @@ export function SidebarClient({
   labels: SidebarLabels;
 }) {
   const NAV_ITEMS = [
-    { href: "/", label: labels.dashboard, icon: LayoutDashboard, hint: "G D" },
+    { href: "/dashboard", label: labels.dashboard, icon: LayoutDashboard, hint: "G D" },
     { href: "/inbox", label: labels.inbox, icon: Inbox, hint: "G I" },
     { href: "/notifications", label: labels.notifications, icon: Bell, hint: "G N" },
   ];
@@ -121,7 +121,9 @@ function NavGroup({
         {items.map((item) => {
           const Icon = item.icon;
           const active =
-            item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            item.href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

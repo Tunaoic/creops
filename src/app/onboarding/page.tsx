@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function OnboardingPage() {
   if (!(await isClerkEnabled())) {
     // Dev mode — onboarding doesn't apply, send back to dashboard
-    redirect("/");
+    redirect("/dashboard");
   }
 
   const userId = await getCurrentUserIdAsync();
@@ -45,19 +45,19 @@ export default async function OnboardingPage() {
     .from(schema.users)
     .where(eq(schema.users.id, userId))
     .get();
-  if (!user) redirect("/");
+  if (!user) redirect("/dashboard");
 
   const workspace = await db
     .select()
     .from(schema.workspaces)
     .where(eq(schema.workspaces.id, user.workspaceId))
     .get();
-  if (!workspace) redirect("/");
+  if (!workspace) redirect("/dashboard");
 
   // Skip onboarding if user has already renamed away from the default
   const isDefaultName = workspace.name.endsWith("'s Workspace");
   if (!isDefaultName) {
-    redirect("/");
+    redirect("/dashboard");
   }
 
   return (

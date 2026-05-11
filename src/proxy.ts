@@ -29,9 +29,11 @@ export default async function proxy(req: NextRequest) {
   );
 
   const isPublicRoute = createRouteMatcher([
+    "/",                  // marketing landing
     "/sign-in(.*)",
     "/sign-up(.*)",
     "/api/webhooks(.*)",
+    "/api/health",        // diagnostic, public on purpose
   ]);
 
   const handler = clerkMiddleware(async (auth, request) => {

@@ -120,7 +120,7 @@ export function NewTopicForm({ channels }: { channels: Channel[] }) {
     <div className="max-w-2xl mx-auto px-6 py-5">
       <div className="mb-4">
         <Link
-          href="/"
+          href="/dashboard"
           className="inline-flex items-center gap-1 text-[13px] text-text-muted hover:text-text mb-3"
         >
           <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />

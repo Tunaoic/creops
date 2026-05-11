@@ -1,18 +1,7 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
-import { TopBar } from "@/components/top-bar";
-import { CommandPalette } from "@/components/command-palette";
-import { StatusBar } from "@/components/status-bar";
 import { ClerkAwareProvider } from "@/components/clerk-aware-provider";
-import {
-  getAllTopics,
-  getAllUsers,
-  getCurrentUser,
-  getNotificationsForCurrentUser,
-  getUnreadNotificationCount,
-} from "@/db/queries";
 import { getLocale } from "@/lib/i18n";
 import { isClerkEnabled } from "@/lib/auth-config";
 
@@ -22,22 +11,20 @@ export const metadata: Metadata = {
     "1 source → N formats × M channels. Standardize content production for creator teams.",
 };
 
+/**
+ * Root layout — minimal chrome shared by EVERY route, including public
+ * landing, sign-in/sign-up, onboarding, and the authed dashboard.
+ *
+ * The authed-app chrome (Sidebar, TopBar, StatusBar, CommandPalette) lives
+ * in src/app/(app)/layout.tsx so that public pages aren't forced to render
+ * a dashboard shell.
+ */
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [topics, members, currentUser, notifications, unreadCount, locale, clerkOn] =
-    await Promise.all([
-      getAllTopics(),
-      getAllUsers(),
-      getCurrentUser(),
-      getNotificationsForCurrentUser(15),
-      getUnreadNotificationCount(),
-      getLocale(),
-      isClerkEnabled(),
-    ]);
-  const topicNames = Object.fromEntries(topics.map((t) => [t.id, t.name]));
+  const [locale, clerkOn] = await Promise.all([getLocale(), isClerkEnabled()]);
 
   // Inline script — runs synchronously before first paint to set [data-theme]
   // from localStorage. Prevents flash of wrong theme on reload.
@@ -50,23 +37,7 @@ export default async function RootLayout({
           <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
         </head>
         <body className="min-h-screen">
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <div className="flex-1 min-w-0 flex flex-col">
-              <TopBar
-                topicNames={topicNames}
-                notifications={notifications}
-                unreadCount={unreadCount}
-                members={members}
-                currentUserId={currentUser.id}
-                locale={locale}
-                showImpersonator={!clerkOn}
-              />
-              <main className="flex-1 min-w-0 overflow-y-auto">{children}</main>
-              <StatusBar topicCount={topics.length} />
-            </div>
-          </div>
-          <CommandPalette topics={topics} />
+          {children}
           <Toaster
             position="top-center"
             richColors

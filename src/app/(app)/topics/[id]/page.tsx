@@ -77,7 +77,7 @@ export default async function TopicDetailPage({
     <div className="max-w-5xl mx-auto px-8 py-7 space-y-6">
       <div>
         <Link
-          href="/"
+          href="/dashboard"
           className="inline-flex items-center gap-1.5 text-[14px] text-text-muted hover:text-text mb-4"
         >
           <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />

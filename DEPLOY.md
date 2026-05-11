@@ -8,11 +8,39 @@ users, then ship round 2 etc.
 
 | Round | What it ships | Code status | Your action needed |
 |---|---|---|---|
-| **1a** | Clerk auth, sign-in/up pages, onboarding, webhook | ✅ done (commit) | Provision Clerk + paste keys |
-| **1b** | Cloud DB (Turso), async query refactor | 🔜 next commit | Provision Turso + paste DATABASE_URL |
-| **1c** | Vercel deploy, custom domain | — | Push to GitHub, connect Vercel |
+| **1a** | Clerk auth, sign-in/up pages, onboarding, webhook | ✅ done | Provision Clerk + paste keys |
+| **1b** | Cloud DB (Turso), async query refactor | ✅ done | Provision Turso + paste DATABASE_URL |
+| **1c** | Vercel scaffold, CI, route group | ✅ done | Push GitHub, connect Vercel |
+| **1d** | Public landing, /api/health, deploy:check, error pages | ✅ done | None |
 | **2** | Email invites (Resend), R2 file upload | — | Provision Resend, R2 |
 | **3** | Stripe Subscriptions, tier limits | — | Provision Stripe, define tiers |
+
+## Quick verify before any deploy
+
+```bash
+pnpm typecheck    # TypeScript clean
+pnpm test         # 16 tests pass
+pnpm build        # Production build clean
+pnpm deploy:check # Verifies env vars + DB connectivity
+```
+
+If `pnpm deploy:check` returns "Ready to deploy" → push.
+
+## Post-deploy verification
+
+```bash
+# After Vercel deploy completes, hit the health endpoint
+curl https://<your-deploy-url>/api/health | jq
+
+# Expect:
+#   "status": "ok"
+#   "auth.clerkConfigured": true
+#   "database.mode": "turso"
+#   "database.reachable": true
+#   "database.latencyMs": <50ms from sin1
+```
+
+If any check is `false` or `unhealthy` → that env var didn't make it into Vercel.
 
 ---
 

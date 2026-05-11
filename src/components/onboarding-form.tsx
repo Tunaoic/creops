@@ -24,7 +24,7 @@ export function OnboardingForm({
     startTransition(async () => {
       await renameWorkspace(workspaceId, trimmed);
       toast.success(`Workspace ready: ${trimmed}`);
-      router.push("/");
+      router.push("/dashboard");
     });
   }
 

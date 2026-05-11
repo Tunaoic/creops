@@ -64,7 +64,7 @@ export function TopBar({
       {/* Breadcrumbs — sans-serif, gentle */}
       <nav className="flex items-center gap-1.5 flex-1 min-w-0 text-[14px] text-text-muted">
         <Link
-          href="/"
+          href="/dashboard"
           className="hover:text-text transition-colors"
         >
           {homeLabel}
