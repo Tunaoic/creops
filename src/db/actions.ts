@@ -1,7 +1,7 @@
 "use server";
 
 import { db, schema } from "./client";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
@@ -399,30 +399,203 @@ export async function addDeliverableToTopic(
 
 // ============================================================================
 // Bulk task operations
+// ----------------------------------------------------------------------------
+// Batch pattern (HTTP 207 Multi-Status / AIP-234):
+//   1. Snapshot the tasks first.
+//   2. Apply all DB writes in one pass.
+//   3. Fan out notifications (per-task — assignees need to know each outcome).
+//   4. Revalidate ONCE at the end.
+// This replaces the old "loop calling assignTask/approveTask/rejectTask"
+// which caused N revalidate cycles + N redundant DB reads + UI thrash.
 // ============================================================================
 
 export async function bulkAssignTasks(
   taskIds: string[],
   assigneeIds: string[]
 ): Promise<void> {
-  for (const taskId of taskIds) {
-    await assignTask(taskId, assigneeIds);
+  if (taskIds.length === 0) return;
+  const tasks = db
+    .select()
+    .from(schema.tasks)
+    .where(inArray(schema.tasks.id, taskIds))
+    .all();
+  if (tasks.length === 0) return;
+
+  // Apply all assignments in one pass.
+  for (const t of tasks) {
+    const prev = (t.assigneeIds as string[]) ?? [];
+    const added = assigneeIds.filter((id) => !prev.includes(id));
+    const removed = prev.filter((id) => !assigneeIds.includes(id));
+    if (added.length === 0 && removed.length === 0) continue;
+
+    db.update(schema.tasks)
+      .set({ assigneeIds })
+      .where(eq(schema.tasks.id, t.id))
+      .run();
+    logActivity({
+      action: assigneeIds.length > 0 ? "task.assigned" : "task.unassigned",
+      targetType: "task",
+      targetId: t.id,
+      metadata: { assigneeIds, added, removed, bulk: true },
+    });
+
+    const deliverable = db
+      .select()
+      .from(schema.deliverables)
+      .where(eq(schema.deliverables.id, t.deliverableId))
+      .get();
+    const topicId = deliverable?.topicId;
+    await notifyMany(added, {
+      event: "tasks_assigned",
+      topicId,
+      deliverableId: t.deliverableId,
+      taskId: t.id,
+      payload: { templateItemKey: t.templateItemKey },
+    });
+    await notifyMany(removed, {
+      event: "task_unassigned",
+      topicId,
+      deliverableId: t.deliverableId,
+      taskId: t.id,
+      payload: { templateItemKey: t.templateItemKey },
+    });
   }
+
+  // All tasks share the same deliverable (panel-scoped). Revalidate the
+  // first task's topic — covers the page that called us.
+  const topic = db
+    .select({ topicId: schema.deliverables.topicId })
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, tasks[0].deliverableId))
+    .get();
+  revalidateAfterProgress(topic?.topicId);
 }
 
 export async function bulkApproveTasks(taskIds: string[]): Promise<void> {
-  for (const taskId of taskIds) {
-    await approveTask(taskId);
+  if (taskIds.length === 0) return;
+  const tasks = db
+    .select()
+    .from(schema.tasks)
+    .where(inArray(schema.tasks.id, taskIds))
+    .all();
+  if (tasks.length === 0) return;
+
+  // Only act on tasks currently in 'submitted' state (state-machine guard)
+  const approvable = tasks.filter((t) => t.status === "submitted");
+  if (approvable.length === 0) return;
+
+  // Apply writes
+  for (const t of approvable) {
+    db.update(schema.tasks)
+      .set({ status: "approved", approvedAt: new Date() })
+      .where(eq(schema.tasks.id, t.id))
+      .run();
+    logActivity({
+      action: "task.approved",
+      targetType: "task",
+      targetId: t.id,
+      metadata: { from: t.status, to: "approved", bulk: true },
+    });
   }
+
+  // Notify per-task (assignees + watchers learn each outcome individually).
+  // Snapshot was taken before the writes so we have the pre-update assignees.
+  const deliverableId = approvable[0].deliverableId;
+  const topic = db
+    .select({ topicId: schema.deliverables.topicId })
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, deliverableId))
+    .get();
+  const topicId = topic?.topicId;
+
+  for (const t of approvable) {
+    const assigneesBefore = (t.assigneeIds as string[]) ?? [];
+    await notifyMany(
+      [...assigneesBefore, ...getStakeholders(topicId, t.id)],
+      {
+        event: "task_approved",
+        topicId,
+        deliverableId,
+        taskId: t.id,
+        payload: { templateItemKey: t.templateItemKey },
+      }
+    );
+  }
+
+  // Roll up each affected deliverable (dedup by id since bulk may span
+  // multiple deliverables in theory — current UI is per-deliverable but
+  // be safe).
+  const deliverableIds = Array.from(new Set(approvable.map((t) => t.deliverableId)));
+  for (const did of deliverableIds) {
+    await maybeRollUpDeliverableStatus(did);
+  }
+  revalidateAfterProgress(topicId);
 }
 
 export async function bulkRejectTasks(
   taskIds: string[],
   reason: string
 ): Promise<void> {
-  for (const taskId of taskIds) {
-    await rejectTask(taskId, reason);
+  if (taskIds.length === 0) return;
+  const tasks = db
+    .select()
+    .from(schema.tasks)
+    .where(inArray(schema.tasks.id, taskIds))
+    .all();
+  if (tasks.length === 0) return;
+
+  const rejectable = tasks.filter((t) => t.status === "submitted");
+  if (rejectable.length === 0) return;
+
+  for (const t of rejectable) {
+    db.update(schema.tasks)
+      .set({ status: "rejected", rejectReason: reason })
+      .where(eq(schema.tasks.id, t.id))
+      .run();
+    logActivity({
+      action: "task.rejected",
+      targetType: "task",
+      targetId: t.id,
+      metadata: { reason, from: t.status, to: "rejected", bulk: true },
+    });
   }
+
+  const deliverableId = rejectable[0].deliverableId;
+  const topic = db
+    .select({ topicId: schema.deliverables.topicId })
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, deliverableId))
+    .get();
+  const topicId = topic?.topicId;
+
+  for (const t of rejectable) {
+    const assigneesBefore = (t.assigneeIds as string[]) ?? [];
+    await notifyMany(
+      [...assigneesBefore, ...getStakeholders(topicId, t.id)],
+      {
+        event: "task_rejected",
+        topicId,
+        deliverableId,
+        taskId: t.id,
+        payload: { reason, templateItemKey: t.templateItemKey },
+      }
+    );
+  }
+
+  // Forward-only rollup applies to bulk too: only revert deliverable if it
+  // was already approved/in review.
+  const deliv = db
+    .select()
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, deliverableId))
+    .get();
+  if (deliv?.status === "approved" || deliv?.status === "review") {
+    db.update(schema.deliverables)
+      .set({ status: "in_progress", approvedAt: null })
+      .where(eq(schema.deliverables.id, deliverableId))
+      .run();
+  }
+  revalidateAfterProgress(topicId);
 }
 
 // ============================================================================
@@ -432,11 +605,18 @@ export async function bulkRejectTasks(
 export async function assignTask(
   taskId: string,
   assigneeIds: string[]
-): Promise<void> {
-  // Read previous assignees to figure out new ones (for notifications)
+): Promise<ActionResult> {
   const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  const prevIds = ((before?.assigneeIds as string[]) ?? []) as string[];
+  if (!before) return noop("task not found");
+
+  const prevIds = ((before.assigneeIds as string[]) ?? []) as string[];
   const newlyAdded = assigneeIds.filter((id) => !prevIds.includes(id));
+  const newlyRemoved = prevIds.filter((id) => !assigneeIds.includes(id));
+
+  // Short-circuit no-op (clicking save without changes).
+  if (newlyAdded.length === 0 && newlyRemoved.length === 0) {
+    return noop("no assignee change");
+  }
 
   db.update(schema.tasks)
     .set({ assigneeIds })
@@ -447,47 +627,90 @@ export async function assignTask(
     action: assigneeIds.length > 0 ? "task.assigned" : "task.unassigned",
     targetType: "task",
     targetId: taskId,
-    metadata: { assigneeIds },
+    metadata: { assigneeIds, added: newlyAdded, removed: newlyRemoved },
   });
 
-  const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  if (task && newlyAdded.length > 0) {
-    const deliverable = db
-      .select()
-      .from(schema.deliverables)
-      .where(eq(schema.deliverables.id, task.deliverableId))
-      .get();
-    for (const userId of newlyAdded) {
-      notify({
-        userId,
-        event: "tasks_assigned",
-        topicId: deliverable?.topicId,
-        deliverableId: task.deliverableId,
-        taskId,
-        payload: { templateItemKey: task.templateItemKey },
-      });
-    }
-  }
-  if (task) {
-    const topic = db
-      .select({ topicId: schema.deliverables.topicId })
-      .from(schema.deliverables)
-      .where(eq(schema.deliverables.id, task.deliverableId))
-      .get();
-    revalidateAfterProgress(topic?.topicId);
-  }
+  const deliverable = db
+    .select()
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, before.deliverableId))
+    .get();
+  const topicId = deliverable?.topicId;
+
+  // Notify newly added — "you've been assigned"
+  await notifyMany(newlyAdded, {
+    event: "tasks_assigned",
+    topicId,
+    deliverableId: before.deliverableId,
+    taskId,
+    payload: { templateItemKey: before.templateItemKey },
+  });
+  // Notify newly removed — "you've been unassigned" (so it leaves their Inbox)
+  await notifyMany(newlyRemoved, {
+    event: "task_unassigned",
+    topicId,
+    deliverableId: before.deliverableId,
+    taskId,
+    payload: { templateItemKey: before.templateItemKey },
+  });
+
+  revalidateAfterProgress(topicId);
+  return { ok: true };
 }
 
 // ============================================================================
 // Task workflow
+// ----------------------------------------------------------------------------
+// State machine (declarative, server-validated):
+//
+//   todo ──submit──> submitted ──approve──> approved
+//    │ ▲                │                       │
+//    │ │                ├──reject──> rejected ──submit──> submitted
+//    │ └────────────────┴── (any state can go back to todo via unassign cleanup)
+//
+// Guards:
+//   - Submit only on todo / in_progress / rejected (resubmit). Refuse on
+//     submitted (already submitted) / approved (use a manual override path).
+//   - Approve only on submitted.
+//   - Reject only on submitted.
+//   - markChannelAired only on deliverable.status === 'approved'.
+//
+// Forward-only parent rollup (Linear convention):
+//   - rejectTask does NOT auto-reset deliverable to in_progress in the normal
+//     flow. Only resets if deliverable had already been bumped to 'approved'
+//     (a true revert case).
 // ============================================================================
 
-export async function submitTask(taskId: string, output: unknown): Promise<void> {
+type ActionResult = { ok: true } | { ok: false; reason: string };
+
+/** Result-style success. Logs to console for telemetry on no-op cases. */
+function noop(reason: string): ActionResult {
+  // eslint-disable-next-line no-console
+  console.warn(`[workflow] short-circuit: ${reason}`);
+  return { ok: false, reason };
+}
+
+export async function submitTask(
+  taskId: string,
+  output: unknown
+): Promise<ActionResult> {
+  const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+  if (!before) return noop("task not found");
+
+  // Guard: refuse submits on already-approved tasks (would silently overwrite
+  // approved output) or aired deliverables.
+  if (before.status === "approved") {
+    return noop("task already approved — cannot resubmit");
+  }
+
   db.update(schema.tasks)
     .set({
       outputValue: output as never,
       status: "submitted",
       submittedAt: new Date(),
+      // Clear stale reject reason on a resubmit so old feedback doesn't haunt
+      // the row after it's been addressed.
+      rejectReason: null,
     })
     .where(eq(schema.tasks.id, taskId))
     .run();
@@ -496,51 +719,55 @@ export async function submitTask(taskId: string, output: unknown): Promise<void>
     action: "task.submitted",
     targetType: "task",
     targetId: taskId,
+    metadata: { from: before.status, to: "submitted" },
   });
 
-  const submittedTask = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  if (submittedTask) {
-    const deliverable = db
-      .select()
-      .from(schema.deliverables)
-      .where(eq(schema.deliverables.id, submittedTask.deliverableId))
-      .get();
-    const topicId = deliverable?.topicId;
-    // Fan out to creator + topic watchers + task watchers
-    const stakeholders = getStakeholders(topicId, taskId);
+  const deliverable = db
+    .select()
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, before.deliverableId))
+    .get();
+  const topicId = deliverable?.topicId;
+  // Fan out to creator + topic watchers + task watchers
+  const stakeholders = getStakeholders(topicId, taskId);
+  await notifyMany(stakeholders, {
+    event: "task_submitted",
+    topicId,
+    deliverableId: before.deliverableId,
+    taskId,
+    payload: { templateItemKey: before.templateItemKey },
+  });
+
+  const wasReviewBefore = deliverable?.status === "review";
+  await maybeRollUpDeliverableStatus(before.deliverableId);
+  const after = db
+    .select()
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, before.deliverableId))
+    .get();
+  if (after?.status === "review" && !wasReviewBefore) {
     await notifyMany(stakeholders, {
-      event: "task_submitted",
+      event: "deliverable_ready_for_review",
       topicId,
-      deliverableId: submittedTask.deliverableId,
-      taskId,
-      payload: { templateItemKey: submittedTask.templateItemKey },
+      deliverableId: before.deliverableId,
     });
-
-    const wasReviewBefore = deliverable?.status === "review";
-    await maybeRollUpDeliverableStatus(submittedTask.deliverableId);
-    // If this submission flipped the deliverable into "review", emit the
-    // deliverable-level event too — bigger signal for the creator.
-    const after = db
-      .select()
-      .from(schema.deliverables)
-      .where(eq(schema.deliverables.id, submittedTask.deliverableId))
-      .get();
-    if (after?.status === "review" && !wasReviewBefore) {
-      await notifyMany(stakeholders, {
-        event: "deliverable_ready_for_review",
-        topicId,
-        deliverableId: submittedTask.deliverableId,
-      });
-    }
-
-    revalidateAfterProgress(topicId);
   }
+
+  revalidateAfterProgress(topicId);
+  return { ok: true };
 }
 
-export async function approveTask(taskId: string): Promise<void> {
-  // Capture assignees BEFORE update (still need them after status change)
+export async function approveTask(taskId: string): Promise<ActionResult> {
   const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  const assigneesBefore = (before?.assigneeIds as string[]) ?? [];
+  if (!before) return noop("task not found");
+
+  // Guard: only submitted tasks can be approved (kanban convention —
+  // approving a todo task is meaningless).
+  if (before.status !== "submitted") {
+    return noop(`cannot approve task in state '${before.status}' (must be 'submitted')`);
+  }
+
+  const assigneesBefore = (before.assigneeIds as string[]) ?? [];
 
   db.update(schema.tasks)
     .set({ status: "approved", approvedAt: new Date() })
@@ -551,36 +778,40 @@ export async function approveTask(taskId: string): Promise<void> {
     action: "task.approved",
     targetType: "task",
     targetId: taskId,
+    metadata: { from: before.status, to: "approved" },
   });
 
-  const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  if (task) {
-    const deliverable = db
-      .select()
-      .from(schema.deliverables)
-      .where(eq(schema.deliverables.id, task.deliverableId))
-      .get();
-    const topicId = deliverable?.topicId;
+  const deliverable = db
+    .select()
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, before.deliverableId))
+    .get();
+  const topicId = deliverable?.topicId;
 
-    // Notify the assignees (their work was approved) + watchers
-    const stakeholders = [
-      ...assigneesBefore,
-      ...getStakeholders(topicId, taskId),
-    ];
-    await notifyMany(stakeholders, {
+  await notifyMany(
+    [...assigneesBefore, ...getStakeholders(topicId, taskId)],
+    {
       event: "task_approved",
       topicId,
-      deliverableId: task.deliverableId,
+      deliverableId: before.deliverableId,
       taskId,
-      payload: { templateItemKey: task.templateItemKey },
-    });
+      payload: { templateItemKey: before.templateItemKey },
+    }
+  );
 
-    await maybeRollUpDeliverableStatus(task.deliverableId);
-    revalidateAfterProgress(topicId);
-  }
+  await maybeRollUpDeliverableStatus(before.deliverableId);
+  revalidateAfterProgress(topicId);
+  return { ok: true };
 }
 
-export async function rejectTask(taskId: string, reason: string): Promise<void> {
+export async function rejectTask(taskId: string, reason: string): Promise<ActionResult> {
+  const before = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
+  if (!before) return noop("task not found");
+
+  if (before.status !== "submitted") {
+    return noop(`cannot reject task in state '${before.status}' (must be 'submitted')`);
+  }
+
   db.update(schema.tasks)
     .set({ status: "rejected", rejectReason: reason })
     .where(eq(schema.tasks.id, taskId))
@@ -590,58 +821,81 @@ export async function rejectTask(taskId: string, reason: string): Promise<void> 
     action: "task.rejected",
     targetType: "task",
     targetId: taskId,
-    metadata: { reason },
+    metadata: { reason, from: before.status, to: "rejected" },
   });
 
-  const rejectedTask = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  const rejectedAssignees = (rejectedTask?.assigneeIds as string[]) ?? [];
-  if (rejectedTask) {
-    const deliverable = db
-      .select()
-      .from(schema.deliverables)
-      .where(eq(schema.deliverables.id, rejectedTask.deliverableId))
-      .get();
-    const topicId = deliverable?.topicId;
-    // Notify assignees (their submission was rejected) + watchers
-    const stakeholders = [
-      ...rejectedAssignees,
-      ...getStakeholders(topicId, taskId),
-    ];
-    await notifyMany(stakeholders, {
+  const rejectedAssignees = (before.assigneeIds as string[]) ?? [];
+  const deliverable = db
+    .select()
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, before.deliverableId))
+    .get();
+  const topicId = deliverable?.topicId;
+  await notifyMany(
+    [...rejectedAssignees, ...getStakeholders(topicId, taskId)],
+    {
       event: "task_rejected",
       topicId,
-      deliverableId: rejectedTask.deliverableId,
+      deliverableId: before.deliverableId,
       taskId,
-      payload: { reason, templateItemKey: rejectedTask.templateItemKey },
-    });
-  }
+      payload: { reason, templateItemKey: before.templateItemKey },
+    }
+  );
 
-  const task = db.select().from(schema.tasks).where(eq(schema.tasks.id, taskId)).get();
-  if (task) {
+  // Forward-only rollup: only revert deliverable status if it had already
+  // been bumped to 'approved' or 'review'. Otherwise leave it alone — natural
+  // re-rollup will fire when the resubmit eventually lands.
+  if (deliverable?.status === "approved" || deliverable?.status === "review") {
     db.update(schema.deliverables)
       .set({ status: "in_progress", approvedAt: null })
-      .where(eq(schema.deliverables.id, task.deliverableId))
+      .where(eq(schema.deliverables.id, before.deliverableId))
       .run();
-    const topic = db
-      .select({ topicId: schema.deliverables.topicId })
-      .from(schema.deliverables)
-      .where(eq(schema.deliverables.id, task.deliverableId))
-      .get();
-    revalidateAfterProgress(topic?.topicId);
   }
+  revalidateAfterProgress(topicId);
+  return { ok: true };
 }
 
+/**
+ * Batch approve/reject decisions for tasks in a deliverable (the swipe
+ * approve flow). Per-task notifications fire (no silent batch — assignees
+ * need to know their specific task's outcome). Bulk-efficient: single
+ * revalidate at the end.
+ */
 export async function approveDeliverable(
   deliverableId: string,
   decisions: Record<string, "approve" | "reject">,
   rejectComments: Record<string, string>
 ): Promise<void> {
+  const topic = db
+    .select({ topicId: schema.deliverables.topicId })
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, deliverableId))
+    .get();
+  const topicId = topic?.topicId;
+
+  // Snapshot tasks before update so we can fire notifications with the
+  // right assignees + skip no-op transitions.
+  const taskRows = db
+    .select()
+    .from(schema.tasks)
+    .where(inArray(schema.tasks.id, Object.keys(decisions)))
+    .all();
+  const taskMap = new Map(taskRows.map((t) => [t.id, t]));
+
+  // Apply decisions (skip invalid state transitions)
+  const willApprove: typeof taskRows = [];
+  const willReject: typeof taskRows = [];
   for (const [taskId, decision] of Object.entries(decisions)) {
+    const t = taskMap.get(taskId);
+    if (!t) continue;
+    if (t.status !== "submitted") continue; // guard: only submitted → approve/reject
+
     if (decision === "approve") {
       db.update(schema.tasks)
         .set({ status: "approved", approvedAt: new Date() })
         .where(eq(schema.tasks.id, taskId))
         .run();
+      willApprove.push(t);
     } else {
       db.update(schema.tasks)
         .set({
@@ -650,31 +904,68 @@ export async function approveDeliverable(
         })
         .where(eq(schema.tasks.id, taskId))
         .run();
+      willReject.push(t);
     }
   }
+
+  // Fire per-task notifications. Each assignee learns their specific
+  // task's outcome (this is the bug the user hit — old batch path emitted
+  // only a deliverable-level notification, hiding individual rejections).
+  for (const t of willApprove) {
+    const assigneesBefore = (t.assigneeIds as string[]) ?? [];
+    await logActivity({
+      action: "task.approved",
+      targetType: "task",
+      targetId: t.id,
+      metadata: { from: t.status, to: "approved", via: "approve_flow" },
+    });
+    await notifyMany(
+      [...assigneesBefore, ...getStakeholders(topicId, t.id)],
+      {
+        event: "task_approved",
+        topicId,
+        deliverableId,
+        taskId: t.id,
+        payload: { templateItemKey: t.templateItemKey },
+      }
+    );
+  }
+  for (const t of willReject) {
+    const assigneesBefore = (t.assigneeIds as string[]) ?? [];
+    const reason = rejectComments[t.id] ?? "";
+    await logActivity({
+      action: "task.rejected",
+      targetType: "task",
+      targetId: t.id,
+      metadata: { reason, from: t.status, to: "rejected", via: "approve_flow" },
+    });
+    await notifyMany(
+      [...assigneesBefore, ...getStakeholders(topicId, t.id)],
+      {
+        event: "task_rejected",
+        topicId,
+        deliverableId,
+        taskId: t.id,
+        payload: { reason, templateItemKey: t.templateItemKey },
+      }
+    );
+  }
+
   await maybeRollUpDeliverableStatus(deliverableId);
-  const topic = db
-    .select({ topicId: schema.deliverables.topicId })
-    .from(schema.deliverables)
-    .where(eq(schema.deliverables.id, deliverableId))
-    .get();
-  // Notify watchers + creator that the deliverable just got reviewed.
-  // Read final status — could be "approved" (all approved) or back to
-  // "in_progress" (some rejected).
   const after = db
     .select()
     .from(schema.deliverables)
     .where(eq(schema.deliverables.id, deliverableId))
     .get();
   if (after?.status === "approved") {
-    const stakeholders = getStakeholders(topic?.topicId, null);
+    const stakeholders = getStakeholders(topicId, null);
     await notifyMany(stakeholders, {
       event: "deliverable_approved",
-      topicId: topic?.topicId,
+      topicId,
       deliverableId,
     });
   }
-  revalidateAfterProgress(topic?.topicId);
+  revalidateAfterProgress(topicId);
 }
 
 // ============================================================================
@@ -684,7 +975,27 @@ export async function approveDeliverable(
 export async function markChannelAired(
   deliverableChannelId: string,
   airedLink: string
-): Promise<void> {
+): Promise<ActionResult> {
+  // Guard: deliverable must be approved before any channel can air.
+  // (UI hides the button when not approved, but server is the source of truth.)
+  const dcCheck = db
+    .select()
+    .from(schema.deliverableChannels)
+    .where(eq(schema.deliverableChannels.id, deliverableChannelId))
+    .get();
+  if (!dcCheck) return noop("deliverable channel not found");
+  if (dcCheck.airedLink) return noop("channel already aired");
+  const delivCheck = db
+    .select({ status: schema.deliverables.status })
+    .from(schema.deliverables)
+    .where(eq(schema.deliverables.id, dcCheck.deliverableId))
+    .get();
+  if (delivCheck?.status !== "approved" && delivCheck?.status !== "aired") {
+    return noop(
+      `cannot mark aired — deliverable is in state '${delivCheck?.status}', must be 'approved'`
+    );
+  }
+
   db.update(schema.deliverableChannels)
     .set({ airedLink, airedAt: new Date() })
     .where(eq(schema.deliverableChannels.id, deliverableChannelId))
@@ -746,6 +1057,7 @@ export async function markChannelAired(
       .get();
     revalidateAfterProgress(topic?.topicId);
   }
+  return { ok: true };
 }
 
 // ============================================================================
@@ -920,6 +1232,7 @@ async function logActivity(input: {
 
 type NotifyEvent =
   | "tasks_assigned"
+  | "task_unassigned"
   | "task_submitted"
   | "task_approved"
   | "task_rejected"

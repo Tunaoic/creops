@@ -21,6 +21,7 @@ import { formatRelativeTime, cn } from "@/lib/utils";
 
 const EVENT_LABEL: Record<string, string> = {
   tasks_assigned: "assigned a task to you",
+  task_unassigned: "unassigned you from a task",
   task_submitted: "submitted a task",
   task_approved: "approved your task",
   task_rejected: "needs changes on your task",
@@ -34,6 +35,7 @@ const EVENT_LABEL: Record<string, string> = {
 
 const EVENT_ICON: Record<string, typeof Bell> = {
   tasks_assigned: CircleDot,
+  task_unassigned: CircleDot,
   task_submitted: Send,
   task_approved: Sparkles,
   task_rejected: AlertCircle,
