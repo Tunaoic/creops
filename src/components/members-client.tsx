@@ -24,6 +24,7 @@ import {
   type User,
   type UserRole,
 } from "@/types";
+import { toast } from "sonner";
 import { createMember, updateMember, removeMember } from "@/db/actions";
 import { cn } from "@/lib/utils";
 
@@ -143,6 +144,7 @@ function DisplayRow({ user, onEdit }: { user: User; onEdit: () => void }) {
   function confirmRemove() {
     startTransition(async () => {
       await removeMember(user.id);
+      toast.success(`Removed ${user.name}`);
       router.refresh();
     });
   }

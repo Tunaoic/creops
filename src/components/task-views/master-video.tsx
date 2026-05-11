@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Video, Loader2, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 import { submitTask } from "@/db/actions";
+import { useTaskDraft } from "@/lib/use-task-draft";
+import { isValidUrl } from "@/lib/url";
 
 export function TaskMasterVideoView({
   taskId,
@@ -21,14 +24,30 @@ export function TaskMasterVideoView({
   sourceLinks?: Array<{ url: string; label: string }>;
 }) {
   const router = useRouter();
-  const [link, setLink] = useState(currentOutput ?? "");
+  const [link, setLink, clearDraft] = useTaskDraft(taskId, currentOutput ?? "");
   const [submitting, startSubmit] = useTransition();
 
+  const trimmed = link.trim();
+  const urlError =
+    trimmed.length > 0 && !isValidUrl(trimmed)
+      ? "Must be a full URL starting with http:// or https://"
+      : null;
+
   function submit() {
+    if (urlError) {
+      toast.error(urlError);
+      return;
+    }
     startSubmit(async () => {
-      await submitTask(taskId, link);
-      router.refresh();
-      router.back();
+      const result = await submitTask(taskId, link);
+      if (result.ok) {
+        clearDraft();
+        toast.success("Submitted for review");
+        router.refresh();
+        router.back();
+      } else {
+        toast.error(result.reason);
+      }
     });
   }
 
@@ -88,11 +107,14 @@ export function TaskMasterVideoView({
             className="flex-1 px-3.5 py-2.5 text-[14px]"
           />
         </div>
+        {urlError && (
+          <p className="text-[12px] text-danger mt-2">{urlError}</p>
+        )}
         <div className="flex justify-end gap-2 mt-5">
           <button
             type="button"
             onClick={submit}
-            disabled={!link.trim() || submitting}
+            disabled={!link.trim() || submitting || urlError !== null}
             className="btn-primary text-[14px] inline-flex items-center gap-1.5 disabled:opacity-50"
           >
             {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

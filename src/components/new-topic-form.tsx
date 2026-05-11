@@ -20,7 +20,9 @@ import {
   type ChannelPlatform,
   type DeliverableType,
 } from "@/types";
+import { toast } from "sonner";
 import { createTopic } from "@/db/actions";
+import { isValidUrl } from "@/lib/url";
 import { cn } from "@/lib/utils";
 
 const DELIVERABLE_DESCRIPTIONS: Record<DeliverableType, string> = {
@@ -65,8 +67,15 @@ export function NewTopicForm({ channels }: { channels: Channel[] }) {
     (t) => selected[t].length > 0
   ).length;
 
-  const validLinks = links.filter((l) => l.url.trim());
-  const canContinue = name.trim() && validLinks.length > 0;
+  const validLinks = links.filter((l) => l.url.trim() && isValidUrl(l.url));
+  // Show inline errors for partially-filled but invalid URLs.
+  const linkErrors = links.map((l) =>
+    l.url.trim() && !isValidUrl(l.url)
+      ? "Must start with http:// or https://"
+      : null
+  );
+  const hasInvalidLink = linkErrors.some(Boolean);
+  const canContinue = name.trim() && validLinks.length > 0 && !hasInvalidLink;
 
   function toggleChannel(type: DeliverableType, channel: ChannelPlatform) {
     setSelected((prev) => {
@@ -102,6 +111,7 @@ export function NewTopicForm({ channels }: { channels: Channel[] }) {
         materialLinks: validLinks,
         deliverables: selected,
       });
+      toast.success(`Created "${name}"`);
       router.push(`/topics/${result.topicId}`);
     });
   }
@@ -198,31 +208,38 @@ export function NewTopicForm({ channels }: { channels: Channel[] }) {
               </span>
             </label>
 
-            <div className="bg-surface border border-border rounded-xl p-3 space-y-2">
+            <div className="bg-surface border border-border rounded-xl p-3 space-y-3">
               {links.map((link, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <LinkIcon className="w-4 h-4 text-text-subtle shrink-0" strokeWidth={1.75} />
-                  <input
-                    type="url"
-                    value={link.url}
-                    onChange={(e) => updateLink(idx, "url", e.target.value)}
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    className="flex-1 min-w-0 px-3 py-2 text-[14px]"
-                  />
-                  <input
-                    type="text"
-                    value={link.label}
-                    onChange={(e) => updateLink(idx, "label", e.target.value)}
-                    placeholder="label"
-                    className="w-32 px-3 py-2 text-[14px]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeLink(idx)}
-                    className="p-2 rounded-full text-text-subtle hover:text-warn hover:bg-surface-hover transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                <div key={idx}>
+                  <div className="flex items-center gap-2">
+                    <LinkIcon className="w-4 h-4 text-text-subtle shrink-0" strokeWidth={1.75} />
+                    <input
+                      type="url"
+                      value={link.url}
+                      onChange={(e) => updateLink(idx, "url", e.target.value)}
+                      placeholder="https://drive.google.com/drive/folders/..."
+                      className="flex-1 min-w-0 px-3 py-2 text-[14px]"
+                    />
+                    <input
+                      type="text"
+                      value={link.label}
+                      onChange={(e) => updateLink(idx, "label", e.target.value)}
+                      placeholder="label"
+                      className="w-32 px-3 py-2 text-[14px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeLink(idx)}
+                      className="p-2 rounded-full text-text-subtle hover:text-warn hover:bg-surface-hover transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {linkErrors[idx] && (
+                    <p className="text-[12px] text-danger mt-1.5 ml-6">
+                      {linkErrors[idx]}
+                    </p>
+                  )}
                 </div>
               ))}
               <button

@@ -11,6 +11,7 @@ import {
   type Deliverable,
   type Task,
 } from "@/types";
+import { toast } from "sonner";
 import { approveDeliverable } from "@/db/actions";
 import { cn } from "@/lib/utils";
 
@@ -84,8 +85,17 @@ export function ApproveFlowClient({
   }
 
   function finish() {
+    const approveCount = Object.values(decisions).filter((d) => d === "approve").length;
+    const rejectCount = Object.values(decisions).filter((d) => d === "reject").length;
     startSubmit(async () => {
       await approveDeliverable(deliverable.id, decisions, rejectComments);
+      toast.success(
+        rejectCount === 0
+          ? `Approved all ${approveCount} tasks`
+          : approveCount === 0
+            ? `Sent back ${rejectCount} tasks for changes`
+            : `Approved ${approveCount}, sent back ${rejectCount}`
+      );
       router.push(`/topics/${topicId}`);
     });
   }

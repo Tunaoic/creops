@@ -1,153 +1,105 @@
-# Cowork — Creative Workflow Platform
+# CreOps — Content Workflow Platform
 
-Real working app với SQLite persistence. Mọi action **save thật** — refresh trang, restart server, data còn nguyên.
+Real working app with SQLite persistence. Every action **saves for real** — refresh,
+restart, the data stays.
+
+## Requirements
+
+- Node 20 or 22 (tested on 22)
+- pnpm 9 or 11
 
 ## Run
 
 ```bash
 pnpm install        # install deps
-pnpm db:reset       # create local.db + seed sample data
+pnpm db:reset       # create local.db + seed default channels (no test users)
 pnpm dev            # start http://localhost:3000
 ```
 
-Khi seed lại bất cứ lúc nào: `pnpm db:reset`.
+To start fresh at any time: `pnpm db:reset`.
 
-## What's Real (works end-to-end)
+## Development scripts
+
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Next.js dev server with Turbopack on :3000 |
+| `pnpm build` | Production build (also runs TypeScript check) |
+| `pnpm typecheck` | Run TypeScript checker without emitting (fast) |
+| `pnpm test` | Run vitest suites |
+| `pnpm db:generate` | Generate a new Drizzle migration from schema changes |
+| `pnpm db:migrate` | Apply pending migrations to `local.db` |
+| `pnpm db:seed` | Seed the empty workspace (channels only, no users) |
+| `pnpm db:reset` | Wipe `local.db` + re-migrate + re-seed |
+
+## What's real (works end to end)
 
 | Feature | Persists? | Notes |
-|---------|-----------|-------|
-| Create topic + brief + assets | ✅ DB | Click + New Topic, fill form, submit → row in `topics` |
-| Pick deliverables multi-channel | ✅ DB | Auto-spawns tasks per template, auto-assigns default role |
-| AI generate (title, description, cuts, post copy, thread) | ✅ DB (mock outputs) | Click Generate → 600-1200ms delay → outputs save to task |
-| AI Cut Suggestion regen rate limit | ✅ DB | 3/day/deliverable enforced via `ai_cut_regen_log` table |
-| Submit task with content | ✅ DB | Task status: todo → in_progress → submitted, output_value persisted |
-| Approve / Reject (mobile swipe flow) | ✅ DB | Decisions saved per task, deliverable rolls up to approved/in_progress |
-| Mark aired with link | ✅ DB | Per-channel link saved, deliverable rolls up to aired when all channels done |
-| Topic status auto-roll-up | ✅ DB | partially_aired → fully_aired based on deliverable states |
-| Settings: default assignees, block reason, AI limit | ✅ DB | Saved to `workspace_settings` |
-| Channel Style Guide (samples + custom prompt) | ✅ DB | Per-channel × per-content-type, saved to `channel_style_guides` |
-| Search topics + aired links | ✅ Real | Fuzzy match across DB |
+|---|---|---|
+| Create topic + brief + material links | ✅ DB | + URL validation on links |
+| Pick deliverables × multi-channel | ✅ DB | Auto-spawns tasks per template |
+| Per-task multi-assignee + watchers | ✅ DB | Watchers get notified on every progress event |
+| Task workflow (todo → submitted → approved/rejected) | ✅ DB | State-machine guards on every transition |
+| Per-task approve / request changes (creator) | ✅ DB | With reason capture, fan-out notify |
+| Resubmit after rejection | ✅ DB | Old reject reason auto-cleared |
+| Mark aired with link | ✅ DB | Per-channel; deliverable rolls up to "aired" when all done |
+| Topic status auto-rollup | ✅ DB | partially_aired → fully_aired |
+| Notifications + bell + per-task fan-out | ✅ DB | Real names ("Trang submitted") not "Someone" |
+| Activity log per task | ✅ DB | with `{from, to, via}` metadata |
+| Comments on topic + task | ✅ DB | with mentions |
+| Settings (display preferences, channels) | ✅ DB | |
+| Theme (light / dark) | ✅ localStorage | with FOUC-prevention bootstrap |
+| Language toggle (en / vi) | ✅ cookie | covers sidebar / topbar / dashboard / inbox |
+| User impersonation (test as different members) | ✅ cookie | top-bar "As X" switcher |
+| Search across topics + briefs + aired links | ✅ Real | fuzzy match |
+| Calendar (publish + production modes) | ✅ Real | per-task due dates + per-channel air dates |
+| Toast feedback on every action | ✅ UI | success / error / pending states via sonner |
+| Draft autosave on task forms | ✅ localStorage | survives tab close / refresh |
 
-## What's Mocked (would need API keys for real)
+## What's mocked (would need API keys for real)
 
 | Feature | Why mocked | Production fix |
-|---------|------------|----------------|
-| Auth | No Clerk keys | Sign up Clerk, add CLERK_PUBLISHABLE_KEY + CLERK_SECRET_KEY |
+|---|---|---|
+| Auth | No Clerk keys | Sign up Clerk, add `CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` |
 | File upload | No R2 bucket | Cloudflare R2 + signed URLs + tus.io resumable |
-| AI calls (Claude API + Whisper) | No API keys | Replace `generateAI*` mock returns with real `@anthropic-ai/sdk` calls |
-| Notifications (email) | No Resend key | Add RESEND_API_KEY, send via `resend.emails.send()` |
+| AI calls (Claude API + Whisper) | No API keys | Replace `generateAI*` mocks with real `@anthropic-ai/sdk` calls |
+| Notifications (email) | No Resend key | Add `RESEND_API_KEY`, send via `resend.emails.send()` |
 | Stripe billing | No Stripe account | Stripe Subscriptions per-workspace |
-| Production deployment | Local-only | Vercel + Neon Postgres (swap better-sqlite3 → @neondatabase/serverless + drizzle-orm/neon-http) |
+| Production deploy | Local SQLite only | Vercel + Neon Postgres (swap `better-sqlite3` → `@neondatabase/serverless` + `drizzle-orm/neon-http`) |
 
-## Try the Full Loop (proves persistence)
+See `SETUP.md` for the full production-ready setup guide.
 
-1. **Create:** `+ New Topic` → "Test 1" + brief + select 1-2 sample assets
-2. Step 2 → tick **Short Video** + **TikTok**
-3. Submit → redirects to topic page, you see new deliverable + 3-4 auto-spawned tasks
-4. **Generate AI:** Click task "Master video" → "Generate Cut Suggestions" → 1.2s delay → 3 mock cuts appear with timestamps
-5. Click "Mock upload" then "Submit for Review" → task saved as submitted
-6. **Approve flow:** Back to dashboard → "Test 1" appears in "Needs Review" → click "Review" → mobile card stack
-7. Approve / reject each card → "Save decisions"
-8. **Mark aired:** Topic detail → if deliverable approved, MarkAiredButton appears → paste link → save → status flips to aired
-9. **Refresh entire browser** → everything persists
-10. **Restart `pnpm dev`** → data still there in `local.db`
+## Try the full loop (proves persistence + workflow)
 
-## DB schema (SQLite, 14 tables)
+1. **Set up team:** Settings → Team members → add 2-3 (e.g., Alex, Trang, Nga)
+2. **Create:** `+ New topic` → "Test 1" + brief + paste 1-2 material links (Drive
+   folder URLs)
+3. **Step 2:** tick **Short Video** + **TikTok**
+4. Submit → land on topic detail with auto-spawned tasks
+5. **Assign:** Click first task → AssigneePicker → pick Trang
+6. **Impersonate Trang:** Top bar `As ▾` → Trang
+7. Inbox → MY TASKS → click task → fill output → **Submit for review**
+8. **Switch back to Alex:** Bell rings → click notification → see read-only output
+9. **Approve:** click Approve (or Request changes with reason)
+10. Trang's bell rings on rejection; she edits + resubmits
 
-`src/db/schema.ts` — Drizzle TypeScript schema matching `../db-schema.sql`:
-- `workspaces`, `users`, `workspace_settings`
-- `channels`, `channel_style_guides`
-- `topics`, `source_assets`
-- `deliverables`, `deliverable_channels` (many-to-many for multi-channel)
-- `tasks`
-- `ai_cut_suggestions`, `ai_cut_regen_log`
-- `comments`, `activity_log`
+Notifications work cross-impersonation thanks to layout revalidation. State-machine
+guards prevent invalid transitions (you can't approve a task that's not submitted,
+etc.) — the action returns `{ ok: false, reason }` and the UI surfaces it as a
+toast.
 
-Foreign keys, cascades, JSON columns all enforced.
+## Architecture quick map
 
-## Routes
+- `src/app/` — Next 16 App Router pages (server components by default)
+- `src/components/` — Client components (interactivity, transitions)
+- `src/db/schema.ts` — Drizzle schema (single source of truth)
+- `src/db/queries.ts` — Read-only DB queries (`server-only`)
+- `src/db/actions.ts` — Server actions (mutations, return `ActionResult`)
+- `src/lib/` — Helpers (i18n, current-user cookie, URL validation, drafts)
+- `drizzle/` — Generated SQL migrations
+- `scripts/seed.ts` — Idempotent seed (clears + reseeds)
+- `tests/` — Vitest unit tests for state machine + helpers
 
-| Route | Server / Client | Purpose |
-|-------|-----------------|---------|
-| `/` | Server | Dashboard 3 zones — fetched from DB |
-| `/topics` | Server + Client | All topics list with search/filter |
-| `/topics/new` | Server + Client | 2-step create flow → `createTopic()` action |
-| `/topics/[id]` | Server | Topic detail with deliverables + Add Deliverable + Mark Aired |
-| `/topics/[id]/tasks/[taskId]` | Server + Client | Task detail with AI generate + submit |
-| `/topics/[id]/approve/[deliverableId]` | Server + Client | Mobile approve card stack → `approveDeliverable()` action |
-| `/settings` | Server + Client | Workspace settings → `updateWorkspaceSettings()` action |
-| `/settings/channels/[id]` | Server + Client | Channel Style Guide → `updateChannelStyleGuide()` action |
-| `/search` | Server + Client | Full-text search topics + aired links |
+## Stack
 
-## File Structure
-
-```
-src/
-├── app/                                   # Next.js routes
-│   ├── layout.tsx                         # Root + sidebar
-│   ├── page.tsx                           # Dashboard
-│   ├── topics/...                         # Topic routes
-│   ├── settings/...                       # Settings routes
-│   └── search/page.tsx
-├── components/
-│   ├── sidebar.tsx + sidebar-client.tsx   # Server-fetches user, client renders nav
-│   ├── status-badge.tsx                   # Reusable status pills + progress dots
-│   ├── add-deliverable-button.tsx         # Modal with confirm step
-│   ├── mark-aired-button.tsx              # Inline link input
-│   ├── approve-flow-client.tsx            # Mobile card stack
-│   ├── new-topic-form.tsx                 # 2-step create form
-│   ├── topics-list-client.tsx
-│   ├── search-client.tsx
-│   ├── settings-client.tsx
-│   ├── channel-style-guide-client.tsx
-│   └── task-views/                        # 4 task type variants
-│       ├── master-video.tsx               # AI Cut Suggestion
-│       ├── title.tsx                      # AI title suggestions
-│       ├── description.tsx                # AI description draft
-│       └── generic.tsx                    # Fallback (post copy, thread, file, datetime, chips)
-├── db/
-│   ├── schema.ts                          # Drizzle schema
-│   ├── client.ts                          # better-sqlite3 + Drizzle init
-│   ├── queries.ts                         # Read functions (server-only)
-│   └── actions.ts                         # Server Actions for mutations
-├── lib/
-│   ├── ai-mock.ts                         # Mock AI outputs returned by actions
-│   └── utils.ts
-└── types/
-    └── index.ts                           # App types matching DB
-```
-
-## Tech Stack
-
-- Next.js 16.2 + React 19.2 (Turbopack default, async params, server actions)
-- TypeScript 5.9
-- Tailwind CSS 4 (`@import "tailwindcss"`)
-- Drizzle ORM 0.45 + better-sqlite3 12
-- lucide-react icons
-
-## DB Commands
-
-```bash
-pnpm db:generate    # generate migration from schema changes
-pnpm db:migrate     # apply pending migrations
-pnpm db:seed        # reseed (clears + reinserts sample data)
-pnpm db:reset       # rm local.db + migrate + seed (full reset)
-```
-
-## To go to Production (~5-6 weeks solo dev)
-
-| Step | Effort | Required keys/accounts |
-|------|--------|------------------------|
-| Swap SQLite → Neon Postgres | 1 day | Neon URL |
-| Add Clerk auth, multi-user | 2-3 days | Clerk keys |
-| File upload → Cloudflare R2 | 2-3 days | R2 bucket + keys |
-| Replace mock AI → Claude API | 4-5 days | ANTHROPIC_API_KEY |
-| Whisper transcription via Inngest | 1-2 days | OPENAI_API_KEY + Inngest |
-| Notifications via Resend | 2 days | RESEND_API_KEY |
-| Stripe billing | 2 days | Stripe account |
-| Vercel deploy + env config | 1 day | Vercel account |
-
-Specs sẵn sàng để brief dev:
-- [creative-workflow-platform-spec.md](../creative-workflow-platform-spec.md)
-- [db-schema.sql](../db-schema.sql) (Postgres equivalent of Drizzle schema)
-- [ai-prompt-spec.md](../ai-prompt-spec.md)
+Next 16 (Turbopack) · React 19 · TypeScript 5 · Tailwind 4 · Drizzle ORM ·
+better-sqlite3 · Sonner toasts · Apple system font stack

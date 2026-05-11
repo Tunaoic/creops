@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
@@ -65,6 +66,15 @@ export default async function RootLayout({
           </div>
         </div>
         <CommandPalette topics={topics} />
+        <Toaster
+          position="top-center"
+          richColors
+          toastOptions={{
+            // Match Apple-style typography — sentence case, sans-serif,
+            // rounded-2xl matching the rest of the design system.
+            className: "rounded-2xl border-border",
+          }}
+        />
       </body>
     </html>
   );

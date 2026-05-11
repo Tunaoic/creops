@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useOptimistic } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { approveTask, rejectTask } from "@/db/actions";
 import { cn } from "@/lib/utils";
 
@@ -11,8 +12,13 @@ import { cn } from "@/lib/utils";
  * state. Pressing Approve fires {@link approveTask}; pressing Reject opens
  * an inline form for the reason and fires {@link rejectTask}.
  *
- * Notification fan-out happens server-side — assignees + watchers + creator
- * all get the appropriate `task_approved` or `task_rejected` event.
+ * UX architecture (Apple HIG instant-feedback):
+ *   1. Click Approve → button immediately swaps to "Approved ✓" green
+ *      (useOptimistic) so user sees their action register before the
+ *      server roundtrip + revalidatePath cycle completes.
+ *   2. Server action returns ActionResult; if not ok, toast the reason
+ *      and rollback the optimistic state.
+ *   3. router.refresh() pulls fresh data; optimistic state resets cleanly.
  */
 export function TaskReviewPanel({
   taskId,
@@ -26,26 +32,17 @@ export function TaskReviewPanel({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
-  function handleApprove() {
-    startTransition(async () => {
-      await approveTask(taskId);
-      router.refresh();
-    });
-  }
-
-  function handleReject() {
-    if (!reason.trim()) return;
-    startTransition(async () => {
-      await rejectTask(taskId, reason.trim());
-      router.refresh();
-      setRejecting(false);
-      setReason("");
-    });
-  }
+  // Optimistic state machine for the review buttons themselves.
+  // Resets on every render (when server returns + page revalidates).
+  const [optimistic, setOptimistic] = useOptimistic<
+    "idle" | "approved" | "rejected"
+  >("idle");
 
   const labels = {
     approve: locale === "vi" ? "Duyệt" : "Approve",
+    approved: locale === "vi" ? "Đã duyệt" : "Approved",
     reject: locale === "vi" ? "Yêu cầu chỉnh sửa" : "Request changes",
+    rejected: locale === "vi" ? "Đã gửi lại" : "Sent back",
     cancel: locale === "vi" ? "Hủy" : "Cancel",
     reasonPlaceholder:
       locale === "vi"
@@ -57,7 +54,62 @@ export function TaskReviewPanel({
       locale === "vi"
         ? "Assignee đã submit. Duyệt hoặc yêu cầu chỉnh trước khi sang bước tiếp theo."
         : "The assignee has submitted. Approve or request changes before this moves forward.",
+    toastApproved: locale === "vi" ? "Đã duyệt" : "Task approved",
+    toastRejectSent:
+      locale === "vi" ? "Đã gửi lại cho assignee" : "Sent back to the assignee",
   };
+
+  function handleApprove() {
+    startTransition(async () => {
+      setOptimistic("approved");
+      const result = await approveTask(taskId);
+      if (result.ok) {
+        toast.success(labels.toastApproved);
+      } else {
+        toast.error(result.reason);
+      }
+      router.refresh();
+    });
+  }
+
+  function handleReject() {
+    if (!reason.trim()) return;
+    startTransition(async () => {
+      setOptimistic("rejected");
+      const result = await rejectTask(taskId, reason.trim());
+      if (result.ok) {
+        toast.success(labels.toastRejectSent);
+      } else {
+        toast.error(result.reason);
+      }
+      router.refresh();
+      setRejecting(false);
+      setReason("");
+    });
+  }
+
+  // Optimistic flash — show success state for ~half a second before the
+  // server-driven revalidate flips the parent into the new readonly view.
+  if (optimistic === "approved") {
+    return (
+      <section className="bg-success-bg rounded-2xl border border-success/30 p-5">
+        <div className="flex items-center gap-2 text-success">
+          <Check className="w-5 h-5" strokeWidth={2.25} />
+          <span className="text-headline">{labels.approved}</span>
+        </div>
+      </section>
+    );
+  }
+  if (optimistic === "rejected") {
+    return (
+      <section className="bg-danger-bg rounded-2xl border border-danger/30 p-5">
+        <div className="flex items-center gap-2 text-danger">
+          <X className="w-5 h-5" strokeWidth={2.25} />
+          <span className="text-headline">{labels.rejected}</span>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="bg-surface rounded-2xl border border-warn/30 p-5">

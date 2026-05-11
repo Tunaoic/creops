@@ -11,6 +11,7 @@ import {
   Trash2,
   AlertTriangle,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   bulkApproveTasks,
   bulkAssignTasks,
@@ -57,8 +58,10 @@ export function BulkTasksPanel({
   }
 
   function bulkApprove() {
+    const count = selected.size;
     startTransition(async () => {
       await bulkApproveTasks(Array.from(selected));
+      toast.success(`Approved ${count} ${count === 1 ? "task" : "tasks"}`);
       clear();
       router.refresh();
     });
@@ -66,8 +69,10 @@ export function BulkTasksPanel({
 
   function bulkReject() {
     if (!rejectReason.trim()) return;
+    const count = selected.size;
     startTransition(async () => {
       await bulkRejectTasks(Array.from(selected), rejectReason);
+      toast.success(`Sent back ${count} ${count === 1 ? "task" : "tasks"}`);
       setRejectReason("");
       clear();
       router.refresh();
@@ -75,8 +80,14 @@ export function BulkTasksPanel({
   }
 
   function bulkAssign(ids: string[]) {
+    const count = selected.size;
     startTransition(async () => {
       await bulkAssignTasks(Array.from(selected), ids);
+      toast.success(
+        ids.length === 0
+          ? `Cleared ${count} ${count === 1 ? "assignee" : "assignees"}`
+          : `Assigned ${count} ${count === 1 ? "task" : "tasks"}`
+      );
       clear();
       router.refresh();
     });

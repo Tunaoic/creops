@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 import { submitTask } from "@/db/actions";
+import { useTaskDraft } from "@/lib/use-task-draft";
+import { isValidUrl } from "@/lib/url";
 
 export function TaskGenericView({
   taskId,
@@ -17,9 +20,8 @@ export function TaskGenericView({
   initialValue: unknown;
 }) {
   const router = useRouter();
-  const [text, setText] = useState(
-    typeof initialValue === "string" ? initialValue : ""
-  );
+  const initial = typeof initialValue === "string" ? initialValue : "";
+  const [text, setText, clearDraft] = useTaskDraft(taskId, initial);
   const [submitting, startSubmit] = useTransition();
 
   const isText =
@@ -28,18 +30,30 @@ export function TaskGenericView({
     outputType === "markdown";
   const isFile = outputType === "file";
 
+  // Inline validation — show before submit so user fixes without round-trip.
+  const trimmed = text.trim();
+  const urlError =
+    isFile && trimmed.length > 0 && !isValidUrl(trimmed)
+      ? "Must be a full URL starting with http:// or https://"
+      : null;
+
   function submit() {
+    if (urlError) {
+      toast.error(urlError);
+      return;
+    }
     startSubmit(async () => {
-      await submitTask(taskId, text);
-      router.refresh();
-      router.back();
+      const result = await submitTask(taskId, text);
+      if (result.ok) {
+        clearDraft();
+        toast.success("Submitted for review");
+        router.refresh();
+        router.back();
+      } else {
+        toast.error(result.reason);
+      }
     });
   }
-
-  // Long text / markdown / text → textarea
-  // File → URL input (link to upload)
-  // Datetime → datetime input
-  // Chips → comma-separated input
 
   return (
     <section className="bg-surface rounded-2xl border border-border p-5">
@@ -76,6 +90,9 @@ export function TaskGenericView({
               className="flex-1 px-3.5 py-2.5 text-[14px]"
             />
           </div>
+          {urlError && (
+            <p className="text-[12px] text-danger mt-2">{urlError}</p>
+          )}
         </div>
       )}
 
@@ -107,7 +124,7 @@ export function TaskGenericView({
         <button
           type="button"
           onClick={submit}
-          disabled={!text.trim() || submitting}
+          disabled={!text.trim() || submitting || urlError !== null}
           className="btn-primary text-[14px] inline-flex items-center gap-1.5 disabled:opacity-50"
         >
           {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

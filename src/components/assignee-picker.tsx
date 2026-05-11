@@ -2,7 +2,8 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2, X, UserPlus, Check } from "lucide-react";
+import { ChevronDown, Loader2, UserPlus, Check } from "lucide-react";
+import { toast } from "sonner";
 import { assignTask } from "@/db/actions";
 import type { User } from "@/types";
 import { cn } from "@/lib/utils";
@@ -39,18 +40,32 @@ export function AssigneePicker({
   }, [open]);
 
   function toggle(userId: string) {
-    const next = currentAssigneeIds.includes(userId)
+    const wasAssigned = currentAssigneeIds.includes(userId);
+    const next = wasAssigned
       ? currentAssigneeIds.filter((id) => id !== userId)
       : [...currentAssigneeIds, userId];
+    const targetName = members.find((m) => m.id === userId)?.name ?? "user";
     startTransition(async () => {
-      await assignTask(taskId, next);
+      const result = await assignTask(taskId, next);
+      if (result.ok) {
+        toast.success(
+          wasAssigned ? `Removed ${targetName}` : `Assigned to ${targetName}`
+        );
+      } else {
+        toast.error(result.reason);
+      }
       router.refresh();
     });
   }
 
   function clearAll() {
     startTransition(async () => {
-      await assignTask(taskId, []);
+      const result = await assignTask(taskId, []);
+      if (result.ok) {
+        toast.success("Cleared all assignees");
+      } else {
+        toast.error(result.reason);
+      }
       router.refresh();
       setOpen(false);
     });

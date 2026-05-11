@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { submitTask } from "@/db/actions";
+import { useTaskDraft } from "@/lib/use-task-draft";
 
 export function TaskDescriptionView({
   taskId,
@@ -13,14 +15,20 @@ export function TaskDescriptionView({
   initialValue?: string;
 }) {
   const router = useRouter();
-  const [text, setText] = useState(initialValue ?? "");
+  const [text, setText, clearDraft] = useTaskDraft(taskId, initialValue ?? "");
   const [submitting, startSubmit] = useTransition();
 
   function submit() {
     startSubmit(async () => {
-      await submitTask(taskId, text);
-      router.refresh();
-      router.back();
+      const result = await submitTask(taskId, text);
+      if (result.ok) {
+        clearDraft();
+        toast.success("Submitted for review");
+        router.refresh();
+        router.back();
+      } else {
+        toast.error(result.reason);
+      }
     });
   }
 

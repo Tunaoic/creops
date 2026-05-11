@@ -1,4 +1,4 @@
-# Cowork — Production Setup Guide
+# CreOps — Production Setup Guide
 
 App chạy được ngay không cần gì cả (mock mode). Mỗi key mày paste vào `.env.local` → 1 phần becomes real. **Dual-mode:** real API call nếu key set, fallback mock nếu không.
 
