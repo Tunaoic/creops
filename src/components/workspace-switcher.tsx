@@ -63,10 +63,12 @@ export function WorkspaceSwitcher({
   }
 
   if (workspaces.length === 0) {
-    // No workspace yet (post-leave / fresh user) — link to settings to create one
+    // No workspace yet (post-leave / fresh user) — bounce to the
+    // dedicated /welcome landing instead of settings (settings would
+    // just redirect through the resolver anyway).
     return (
       <Link
-        href="/settings/workspaces"
+        href="/welcome"
         className="mx-3 mt-3 mb-2 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border-strong text-[14px] text-text-muted hover:bg-surface-hover hover:text-text transition-colors"
       >
         <Plus className="w-4 h-4" strokeWidth={2} />

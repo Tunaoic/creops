@@ -40,8 +40,12 @@ export default defineConfig({
     : {
         webServer: {
           // Force dev-mode fallback by passing empty Clerk keys.
+          // Force local SQLite by clearing Turso credentials — without
+          // this the dev server picks up DATABASE_URL from .env.local
+          // and tests run against prod data, which (a) is slow and
+          // (b) becomes flaky whenever a real user mutates their data.
           command:
-            "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= CLERK_SECRET_KEY= PORT=3001 pnpm dev",
+            "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= CLERK_SECRET_KEY= DATABASE_URL= DATABASE_AUTH_TOKEN= PORT=3001 pnpm dev",
           url: "http://localhost:3001",
           reuseExistingServer: false,
           timeout: 60_000,

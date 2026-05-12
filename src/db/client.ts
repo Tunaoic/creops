@@ -17,8 +17,11 @@ import * as schema from "./schema";
  * All query call sites use `await` since libsql is async even for
  * local files (the underlying driver does internal async I/O).
  */
-const url = process.env.DATABASE_URL ?? "file:./local.db";
-const authToken = process.env.DATABASE_AUTH_TOKEN;
+// Treat empty string as "unset" — Playwright passes DATABASE_URL= to
+// override .env.local back to local SQLite, and we shouldn't crash
+// trying to parse "" as a libsql URL.
+const url = process.env.DATABASE_URL?.trim() || "file:./local.db";
+const authToken = process.env.DATABASE_AUTH_TOKEN?.trim() || undefined;
 
 export const sqlClient: Client = createClient({ url, authToken });
 export const db = drizzle(sqlClient, { schema });
