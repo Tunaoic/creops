@@ -11,8 +11,7 @@ import {
   type DeliverableType,
 } from "@/types";
 import { COOKIE_NAME, getCurrentUserIdAsync } from "@/lib/current-user";
-
-const WORKSPACE_ID = "ws_1";
+import { getCurrentWorkspaceId } from "@/lib/current-workspace";
 
 /**
  * Resolve current actor for FK inserts (creator_id, author_id, actor_id, uploaded_by).
@@ -215,10 +214,11 @@ export async function createTopic(input: {
 }): Promise<{ topicId: string }> {
   const topicId = `t_${randomUUID().slice(0, 8)}`;
   const actorId = await getActorId();
+  const workspaceId = await getCurrentWorkspaceId();
 
   await db.insert(schema.topics).values({
     id: topicId,
-    workspaceId: WORKSPACE_ID,
+    workspaceId,
     creatorId: actorId,
     name: input.name,
     brief: input.brief,
@@ -261,7 +261,7 @@ export async function createTopic(input: {
         .from(schema.channels)
         .where(
           and(
-            eq(schema.channels.workspaceId, WORKSPACE_ID),
+            eq(schema.channels.workspaceId, workspaceId),
             eq(schema.channels.platform, platform)
           )
         )
@@ -367,7 +367,7 @@ export async function addDeliverableToTopic(
       .from(schema.channels)
       .where(
         and(
-          eq(schema.channels.workspaceId, WORKSPACE_ID),
+          eq(schema.channels.workspaceId, await getCurrentWorkspaceId()),
           eq(schema.channels.platform, platform)
         )
       )
@@ -1145,7 +1145,7 @@ export async function updateWorkspaceSettings(input: {
   if (Object.keys(update).length === 0) return;
   await db.update(schema.workspaceSettings)
     .set(update)
-    .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
+    .where(eq(schema.workspaceSettings.workspaceId, await getCurrentWorkspaceId()))
     .run();
   revalidatePath("/settings");
   revalidatePath("/", "layout");
@@ -1232,7 +1232,7 @@ async function logActivity(input: {
     const actorId = await getActorId();
     await db.insert(schema.activityLog).values({
       id: `act_${randomUUID().slice(0, 8)}`,
-      workspaceId: WORKSPACE_ID,
+      workspaceId: await getCurrentWorkspaceId(),
       actorId,
       action: input.action,
       targetType: input.targetType,
@@ -1392,7 +1392,7 @@ export async function addComment(input: {
   const mentions = input.mentions ?? [];
   await db.insert(schema.comments).values({
     id: commentId,
-    workspaceId: WORKSPACE_ID,
+    workspaceId: await getCurrentWorkspaceId(),
     targetType: input.targetType,
     targetId: input.targetId,
     authorId: await getActorId(),
@@ -1486,7 +1486,7 @@ export async function createMember(input: {
   const userId = `u_${randomUUID().slice(0, 8)}`;
   await db.insert(schema.users).values({
     id: userId,
-    workspaceId: WORKSPACE_ID,
+    workspaceId: await getCurrentWorkspaceId(),
     name: input.name.trim(),
     email: input.email.trim(),
     roles: [input.role],
@@ -1531,10 +1531,11 @@ export async function removeMember(userId: string): Promise<void> {
     }
   }
   // Remove from default assignees
+  const workspaceId = await getCurrentWorkspaceId();
   const settings = await db
     .select()
     .from(schema.workspaceSettings)
-    .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
+    .where(eq(schema.workspaceSettings.workspaceId, workspaceId))
     .get();
   if (settings) {
     const defaults = (settings.defaultAssignees as Record<string, string>) ?? {};
@@ -1548,7 +1549,7 @@ export async function removeMember(userId: string): Promise<void> {
     if (changed) {
       await db.update(schema.workspaceSettings)
         .set({ defaultAssignees: defaults })
-        .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
+        .where(eq(schema.workspaceSettings.workspaceId, workspaceId))
         .run();
     }
   }

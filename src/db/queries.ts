@@ -19,7 +19,6 @@ import type {
   UserRole,
 } from "@/types";
 
-const WORKSPACE_ID = "ws_1";
 /**
  * Legacy export for backward compat — no longer the source of truth.
  * Use getCurrentUserIdAsync() from @/lib/current-user instead.
@@ -27,6 +26,7 @@ const WORKSPACE_ID = "ws_1";
 export const CURRENT_USER_ID = "u_watcher";
 
 import { getCurrentUserIdAsync } from "@/lib/current-user";
+import { getCurrentWorkspaceId } from "@/lib/current-workspace";
 
 /**
  * Resolve current user ID — reads from impersonation cookie first.
@@ -216,10 +216,11 @@ async function loadTopicWithChildren(
 }
 
 export async function getAllTopics(): Promise<Topic[]> {
+  const workspaceId = await getCurrentWorkspaceId();
   const rows = await db
     .select()
     .from(schema.topics)
-    .where(eq(schema.topics.workspaceId, WORKSPACE_ID))
+    .where(eq(schema.topics.workspaceId, workspaceId))
     .orderBy(desc(schema.topics.createdAt))
     .all();
   return Promise.all(rows.map(loadTopicWithChildren));
@@ -353,10 +354,11 @@ export function getBlockReason(
 // ----------------------------------------------------------------------------
 
 export async function getWorkspaceSettings() {
+  const workspaceId = await getCurrentWorkspaceId();
   const row = await db
     .select()
     .from(schema.workspaceSettings)
-    .where(eq(schema.workspaceSettings.workspaceId, WORKSPACE_ID))
+    .where(eq(schema.workspaceSettings.workspaceId, workspaceId))
     .get();
   return row;
 }
