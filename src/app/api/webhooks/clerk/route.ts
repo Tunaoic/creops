@@ -111,11 +111,14 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
   let roles: string[];
 
   if (pendingInvite) {
-    // Attach to the inviter's workspace — skip workspace/channel creation
+    // Attach to the inviter's workspace — skip the "create solo workspace"
+    // path entirely. The user can always create one later via Settings →
+    // Workspaces → New.
     workspaceId = pendingInvite.workspaceId;
     roles = [pendingInvite.role];
   } else {
-    // Solo signup → fresh workspace + default channels
+    // Solo signup → fresh workspace + default channels.
+    // Owner = the new user's internal id.
     workspaceId = `ws_${randomUUID().slice(0, 8)}`;
     roles = ["creator"];
 
@@ -124,6 +127,7 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
         id: workspaceId,
         name: `${name}'s Workspace`,
         plan: "free",
+        ownerId: userId,
       })
       .run();
 
@@ -152,11 +156,18 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
   await db.insert(schema.users)
     .values({
       id: userId,
-      workspaceId,
+      activeWorkspaceId: workspaceId,
       clerkUserId: data.id,
       name,
       email,
       avatarUrl: data.image_url ?? null,
+    })
+    .run();
+
+  await db.insert(schema.workspaceMembers)
+    .values({
+      userId,
+      workspaceId,
       roles,
       accessLevel: "full",
     })

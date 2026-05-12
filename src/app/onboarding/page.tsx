@@ -45,12 +45,12 @@ export default async function OnboardingPage() {
     .from(schema.users)
     .where(eq(schema.users.id, userId))
     .get();
-  if (!user) redirect("/dashboard");
+  if (!user || !user.activeWorkspaceId) redirect("/dashboard");
 
   const workspace = await db
     .select()
     .from(schema.workspaces)
-    .where(eq(schema.workspaces.id, user.workspaceId))
+    .where(eq(schema.workspaces.id, user.activeWorkspaceId))
     .get();
   if (!workspace) redirect("/dashboard");
 

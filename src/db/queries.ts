@@ -40,14 +40,23 @@ export async function resolveCurrentActorId(): Promise<string | null> {
 // Mappers (DB row → app type)
 // ----------------------------------------------------------------------------
 
-function mapUser(row: typeof schema.users.$inferSelect): User {
+/**
+ * Map a user row + (optional) membership row into the app's User type.
+ * Membership carries roles + access — when missing (e.g. the user has
+ * no membership in the current workspace) we default to empty/full.
+ */
+function mapUser(
+  row: typeof schema.users.$inferSelect,
+  membership?: { roles: unknown; accessLevel: string } | null
+): User {
   return {
     id: row.id,
     name: row.name,
     email: row.email,
     avatarUrl: row.avatarUrl ?? undefined,
-    roles: (row.roles as UserRole[]) ?? [],
-    accessLevel: (row.accessLevel as "full" | "limited" | "readonly") ?? "full",
+    roles: ((membership?.roles as UserRole[]) ?? []),
+    accessLevel:
+      (membership?.accessLevel as "full" | "limited" | "readonly") ?? "full",
   };
 }
 
@@ -117,7 +126,23 @@ export async function getCurrentUser(): Promise<User> {
   const id = await getCurrentUserIdAsync();
   if (id) {
     const row = await db.select().from(schema.users).where(eq(schema.users.id, id)).get();
-    if (row) return mapUser(row);
+    if (row) {
+      const workspaceId = await getCurrentWorkspaceId();
+      const membership = await db
+        .select({
+          roles: schema.workspaceMembers.roles,
+          accessLevel: schema.workspaceMembers.accessLevel,
+        })
+        .from(schema.workspaceMembers)
+        .where(
+          and(
+            eq(schema.workspaceMembers.userId, id),
+            eq(schema.workspaceMembers.workspaceId, workspaceId)
+          )
+        )
+        .get();
+      return mapUser(row, membership);
+    }
   }
   // Workspace has zero users — placeholder so UI doesn't crash
   return {
@@ -132,11 +157,72 @@ export async function getCurrentUser(): Promise<User> {
 export async function getAllUsers(): Promise<User[]> {
   const workspaceId = await getCurrentWorkspaceId();
   const rows = await db
-    .select()
-    .from(schema.users)
-    .where(eq(schema.users.workspaceId, workspaceId))
+    .select({
+      user: schema.users,
+      roles: schema.workspaceMembers.roles,
+      accessLevel: schema.workspaceMembers.accessLevel,
+    })
+    .from(schema.workspaceMembers)
+    .innerJoin(
+      schema.users,
+      eq(schema.users.id, schema.workspaceMembers.userId)
+    )
+    .where(eq(schema.workspaceMembers.workspaceId, workspaceId))
     .all();
-  return rows.map(mapUser);
+  return rows.map((r) =>
+    mapUser(r.user, { roles: r.roles, accessLevel: r.accessLevel })
+  );
+}
+
+/**
+ * Workspaces the current user is a member of, hydrated for the
+ * top-bar switcher dropdown. Sorted by joined_at ascending so the
+ * "default" / oldest workspace is at the top.
+ */
+export async function getMyWorkspaces() {
+  const userId = await getCurrentUserIdAsync();
+  if (!userId) return [];
+
+  const rows = await db
+    .select({
+      id: schema.workspaces.id,
+      name: schema.workspaces.name,
+      plan: schema.workspaces.plan,
+      ownerId: schema.workspaces.ownerId,
+      myRoles: schema.workspaceMembers.roles,
+      joinedAt: schema.workspaceMembers.joinedAt,
+    })
+    .from(schema.workspaceMembers)
+    .innerJoin(
+      schema.workspaces,
+      eq(schema.workspaces.id, schema.workspaceMembers.workspaceId)
+    )
+    .where(eq(schema.workspaceMembers.userId, userId))
+    .orderBy(schema.workspaceMembers.joinedAt)
+    .all();
+
+  // Fan out one extra count query per workspace — workspaces per user
+  // are bounded (free = 3, paid = handful). Cheap and avoids a
+  // window-function correlated subquery.
+  const enriched = await Promise.all(
+    rows.map(async (w) => {
+      const cnt = await db
+        .select({ c: sql<number>`count(*)` })
+        .from(schema.workspaceMembers)
+        .where(eq(schema.workspaceMembers.workspaceId, w.id))
+        .get();
+      return {
+        id: w.id,
+        name: w.name,
+        plan: w.plan,
+        ownerId: w.ownerId,
+        myRoles: (w.myRoles as UserRole[]) ?? [],
+        memberCount: cnt?.c ?? 0,
+      };
+    })
+  );
+
+  return enriched;
 }
 
 export interface PendingInvite {

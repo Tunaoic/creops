@@ -15,6 +15,12 @@ export const workspaces = sqliteTable("workspaces", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   plan: text("plan").notNull().default("free"),
+  // Workspace owner — the only member who can rename/delete the workspace.
+  // Nullable so a workspace can survive its owner being removed (rare, e.g.
+  // user deletes Clerk account). UI should re-promote oldest member in that
+  // case; for now we just disable owner-only actions when null.
+  // Self-reference via lazy thunk — `users` is declared below.
+  ownerId: text("owner_id"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -22,9 +28,14 @@ export const workspaces = sqliteTable("workspaces", {
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
-  workspaceId: text("workspace_id")
-    .notNull()
-    .references(() => workspaces.id, { onDelete: "cascade" }),
+  // Which workspace the user is currently viewing. Many-to-many membership
+  // lives in `workspace_members` — this column is just the UI pointer
+  // (used by getCurrentWorkspaceId to avoid passing it on every request).
+  // Nullable so a freshly-provisioned user without any memberships doesn't
+  // crash the resolver — UI redirects them to /onboarding to create one.
+  activeWorkspaceId: text("active_workspace_id").references(() => workspaces.id, {
+    onDelete: "set null",
+  }),
   // Maps to Clerk's user ID (e.g. "user_2abc..."). Null for legacy users
   // created via the dev-mode impersonation flow before auth was wired.
   // Set on signup via Clerk webhook /api/webhooks/clerk.
@@ -32,12 +43,39 @@ export const users = sqliteTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   avatarUrl: text("avatar_url"),
-  roles: text("roles", { mode: "json" }).$type<string[]>().notNull().default(sql`'[]'`),
-  accessLevel: text("access_level").notNull().default("full"), // full | limited | readonly
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
 });
+
+// ============================================================================
+// Workspace membership — many-to-many users × workspaces
+// ----------------------------------------------------------------------------
+// Roles + access level live HERE not on `users` because they're
+// workspace-scoped: same person can be a `creator` in workspace A and a
+// `watcher` in workspace B.
+// ============================================================================
+
+export const workspaceMembers = sqliteTable(
+  "workspace_members",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    roles: text("roles", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'`),
+    accessLevel: text("access_level").notNull().default("full"), // full | limited | readonly
+    joinedAt: integer("joined_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.workspaceId] })]
+);
 
 export const workspaceSettings = sqliteTable("workspace_settings", {
   workspaceId: text("workspace_id")

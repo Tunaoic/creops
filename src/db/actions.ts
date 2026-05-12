@@ -1,7 +1,7 @@
 "use server";
 
 import { db, schema } from "./client";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
@@ -115,24 +115,6 @@ export async function removeWatcher(
       .get();
     revalidateAfterProgress(topic?.topicId);
   }
-}
-
-// ============================================================================
-// Workspace management
-// ============================================================================
-
-export async function renameWorkspace(
-  workspaceId: string,
-  name: string
-): Promise<void> {
-  const trimmed = name.trim();
-  if (!trimmed) return;
-  await db.update(schema.workspaces)
-    .set({ name: trimmed })
-    .where(eq(schema.workspaces.id, workspaceId))
-    .run();
-  revalidatePath("/", "layout");
-  revalidatePath("/settings");
 }
 
 // ============================================================================
@@ -1478,18 +1460,32 @@ export async function removeComment(commentId: string): Promise<void> {
 // Members (Team)
 // ============================================================================
 
+/**
+ * Manually create a placeholder member row (no auth account, no invite
+ * email). Used in dev mode + by the seed script to populate fixtures.
+ * Production users always come in via Clerk webhook + acceptInvite.
+ *
+ * Inserts both a `users` row and a `workspace_members` row scoped to
+ * the current workspace.
+ */
 export async function createMember(input: {
   name: string;
   email: string;
   role: string;
 }): Promise<{ userId: string }> {
   const userId = `u_${randomUUID().slice(0, 8)}`;
+  const workspaceId = await getCurrentWorkspaceId();
   await db.insert(schema.users).values({
     id: userId,
-    workspaceId: await getCurrentWorkspaceId(),
+    activeWorkspaceId: workspaceId,
     name: input.name.trim(),
     email: input.email.trim(),
+  }).run();
+  await db.insert(schema.workspaceMembers).values({
+    userId,
+    workspaceId,
     roles: [input.role],
+    accessLevel: "full",
   }).run();
   revalidatePath("/settings/members");
   revalidatePath("/settings");
@@ -1533,14 +1529,17 @@ export async function inviteMember(input: {
   const workspaceId = await getCurrentWorkspaceId();
   const inviterId = await getActorId();
 
-  // Already a member of this workspace?
+  // Already a member of this workspace? Match user by email then check
+  // workspace_members. Email is case-insensitive so we lower-case both
+  // sides (we already lowered `email` above).
   const existingMember = await db
     .select({ id: schema.users.id })
-    .from(schema.users)
+    .from(schema.workspaceMembers)
+    .innerJoin(schema.users, eq(schema.users.id, schema.workspaceMembers.userId))
     .where(
       and(
-        eq(schema.users.workspaceId, workspaceId),
-        eq(schema.users.email, email)
+        eq(schema.workspaceMembers.workspaceId, workspaceId),
+        sql`lower(${schema.users.email}) = ${email}`
       )
     )
     .get();
@@ -1634,8 +1633,16 @@ export async function inviteMember(input: {
  * Accept a workspace invite. Called from /join/[token] after the user
  * has signed up via Clerk and we know their identity.
  *
- * Idempotent — calling twice with the same token is a no-op the second
- * time (returns the same workspaceId).
+ * Behavior:
+ *   - INSERT a workspace_members row (additive — keeps any other
+ *     workspaces the user already belongs to)
+ *   - Switch their `activeWorkspaceId` to this one (so they "land in"
+ *     the workspace they just joined — option A from the design Q&A)
+ *   - Mark the invite consumed
+ *
+ * Idempotent — re-running with the same token short-circuits when the
+ * invite is already accepted, OR when membership already exists (e.g.
+ * the Clerk webhook beat us to it on the same browser session).
  */
 export async function acceptInvite(token: string): Promise<{
   ok: boolean;
@@ -1659,40 +1666,62 @@ export async function acceptInvite(token: string): Promise<{
   if (invite.expiresAt < new Date()) {
     return { ok: false, reason: "Invite has expired" };
   }
-  if (invite.acceptedAt) {
-    // Already accepted — return its workspace so we can route the user there
-    return { ok: true, workspaceId: invite.workspaceId };
+
+  // Already a member? Just switch active workspace + short-circuit.
+  // Don't error — gives us idempotency for the "Clerk webhook beat us"
+  // race + the user clicking the link twice.
+  const existingMembership = await db
+    .select({ workspaceId: schema.workspaceMembers.workspaceId })
+    .from(schema.workspaceMembers)
+    .where(
+      and(
+        eq(schema.workspaceMembers.userId, userId),
+        eq(schema.workspaceMembers.workspaceId, invite.workspaceId)
+      )
+    )
+    .get();
+
+  if (!existingMembership) {
+    await db
+      .insert(schema.workspaceMembers)
+      .values({
+        userId,
+        workspaceId: invite.workspaceId,
+        roles: [invite.role],
+        accessLevel: "full",
+      })
+      .run();
   }
 
-  // Move the user to the invite's workspace + apply role
+  // Switch active workspace pointer so the dashboard lands in the new place.
   await db
     .update(schema.users)
-    .set({
-      workspaceId: invite.workspaceId,
-      roles: [invite.role],
-    })
+    .set({ activeWorkspaceId: invite.workspaceId })
     .where(eq(schema.users.id, userId))
     .run();
 
-  // Mark invite consumed
-  await db
-    .update(schema.workspaceInvites)
-    .set({
-      acceptedBy: userId,
-      acceptedAt: new Date(),
-    })
-    .where(eq(schema.workspaceInvites.token, token))
-    .run();
+  // Mark invite consumed (idempotent — running twice is a harmless re-stamp).
+  if (!invite.acceptedAt) {
+    await db
+      .update(schema.workspaceInvites)
+      .set({
+        acceptedBy: userId,
+        acceptedAt: new Date(),
+      })
+      .where(eq(schema.workspaceInvites.token, token))
+      .run();
 
-  await logActivity({
-    action: "member.invite_accepted",
-    targetType: "user",
-    targetId: userId,
-    metadata: { token, workspaceId: invite.workspaceId },
-  });
+    await logActivity({
+      action: "member.invite_accepted",
+      targetType: "user",
+      targetId: userId,
+      metadata: { token, workspaceId: invite.workspaceId },
+    });
+  }
 
   revalidatePath("/", "layout");
   revalidatePath("/settings/members");
+  revalidatePath("/settings/workspaces");
 
   return { ok: true, workspaceId: invite.workspaceId };
 }
@@ -1718,6 +1747,16 @@ export async function resendInvite(token: string): Promise<{ ok: boolean; reason
   return inviteMember({ email: invite.email, role: invite.role });
 }
 
+/**
+ * Update a member of the *current* workspace.
+ *
+ * `name` / `email` mutate the global `users` row (one identity across
+ * all workspaces — we don't support per-workspace display names yet).
+ *
+ * `role` / `accessLevel` mutate only the membership row for the
+ * current workspace — same person can be `creator` here and `watcher`
+ * elsewhere.
+ */
 export async function updateMember(input: {
   userId: string;
   name?: string;
@@ -1725,35 +1764,101 @@ export async function updateMember(input: {
   role?: string;
   accessLevel?: "full" | "limited" | "readonly";
 }): Promise<void> {
-  const update: Partial<typeof schema.users.$inferInsert> = {};
-  if (input.name !== undefined) update.name = input.name.trim();
-  if (input.email !== undefined) update.email = input.email.trim();
-  if (input.role !== undefined) update.roles = [input.role];
-  if (input.accessLevel !== undefined) update.accessLevel = input.accessLevel;
-  if (Object.keys(update).length === 0) return;
-  await db.update(schema.users)
-    .set(update)
-    .where(eq(schema.users.id, input.userId))
-    .run();
+  // Identity-level updates (name/email)
+  const userUpdate: Partial<typeof schema.users.$inferInsert> = {};
+  if (input.name !== undefined) userUpdate.name = input.name.trim();
+  if (input.email !== undefined) userUpdate.email = input.email.trim();
+  if (Object.keys(userUpdate).length > 0) {
+    await db
+      .update(schema.users)
+      .set(userUpdate)
+      .where(eq(schema.users.id, input.userId))
+      .run();
+  }
+
+  // Membership-level updates (role/access)
+  if (input.role !== undefined || input.accessLevel !== undefined) {
+    const workspaceId = await getCurrentWorkspaceId();
+    const membershipUpdate: Partial<typeof schema.workspaceMembers.$inferInsert> = {};
+    if (input.role !== undefined) membershipUpdate.roles = [input.role];
+    if (input.accessLevel !== undefined)
+      membershipUpdate.accessLevel = input.accessLevel;
+    await db
+      .update(schema.workspaceMembers)
+      .set(membershipUpdate)
+      .where(
+        and(
+          eq(schema.workspaceMembers.userId, input.userId),
+          eq(schema.workspaceMembers.workspaceId, workspaceId)
+        )
+      )
+      .run();
+  }
+
   revalidatePath("/settings/members");
   revalidatePath("/settings");
 }
 
+/**
+ * Remove a user from the *current* workspace. Deletes the membership
+ * row only — the user's identity (and any other workspace memberships)
+ * stays intact. The owner cannot be removed; transfer ownership first.
+ *
+ * Side effects scoped to the current workspace:
+ *   - Strip user from any tasks' assigneeIds (workspace-scoped tasks)
+ *   - Strip user from workspace_settings.defaultAssignees
+ *   - If the user's `activeWorkspaceId` was this one, clear it — the
+ *     resolver will fall back to their oldest remaining membership.
+ */
 export async function removeMember(userId: string): Promise<void> {
-  // Find tasks where user is in assigneeIds — remove them from each
-  const allTasks = await db.select().from(schema.tasks).all();
-  for (const t of allTasks) {
-    const ids = (t.assigneeIds as string[]) ?? [];
-    if (ids.includes(userId)) {
+  const workspaceId = await getCurrentWorkspaceId();
+
+  // Block removing the owner — UX should disable the button anyway,
+  // this is the server-side guard.
+  const workspace = await db
+    .select({ ownerId: schema.workspaces.ownerId })
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.id, workspaceId))
+    .get();
+  if (workspace?.ownerId === userId) {
+    throw new Error(
+      "Cannot remove the workspace owner. Transfer ownership first."
+    );
+  }
+
+  // Strip from tasks in *this* workspace's topics. The current schema
+  // doesn't have `tasks.workspaceId` directly — tasks live under
+  // deliverables → topics → workspace, so we filter through topics.
+  const workspaceTopicIds = await db
+    .select({ id: schema.topics.id })
+    .from(schema.topics)
+    .where(eq(schema.topics.workspaceId, workspaceId))
+    .all();
+  const topicIdSet = new Set(workspaceTopicIds.map((t) => t.id));
+
+  if (topicIdSet.size > 0) {
+    const allTasks = await db.select().from(schema.tasks).all();
+    for (const t of allTasks) {
+      const ids = (t.assigneeIds as string[]) ?? [];
+      if (!ids.includes(userId)) continue;
+      // Verify this task belongs to a topic in our workspace
+      const deliverable = await db
+        .select({ topicId: schema.deliverables.topicId })
+        .from(schema.deliverables)
+        .where(eq(schema.deliverables.id, t.deliverableId))
+        .get();
+      if (!deliverable || !topicIdSet.has(deliverable.topicId)) continue;
+
       const filtered = ids.filter((id) => id !== userId);
-      await db.update(schema.tasks)
+      await db
+        .update(schema.tasks)
         .set({ assigneeIds: filtered })
         .where(eq(schema.tasks.id, t.id))
         .run();
     }
   }
-  // Remove from default assignees
-  const workspaceId = await getCurrentWorkspaceId();
+
+  // Strip from workspace settings
   const settings = await db
     .select()
     .from(schema.workspaceSettings)
@@ -1769,15 +1874,316 @@ export async function removeMember(userId: string): Promise<void> {
       }
     }
     if (changed) {
-      await db.update(schema.workspaceSettings)
+      await db
+        .update(schema.workspaceSettings)
         .set({ defaultAssignees: defaults })
         .where(eq(schema.workspaceSettings.workspaceId, workspaceId))
         .run();
     }
   }
-  await db.delete(schema.users).where(eq(schema.users.id, userId)).run();
+
+  // Drop the membership (NOT the user identity)
+  await db
+    .delete(schema.workspaceMembers)
+    .where(
+      and(
+        eq(schema.workspaceMembers.userId, userId),
+        eq(schema.workspaceMembers.workspaceId, workspaceId)
+      )
+    )
+    .run();
+
+  // If their active pointer was this workspace, clear it — resolver
+  // falls back to oldest remaining membership.
+  await db
+    .update(schema.users)
+    .set({ activeWorkspaceId: null })
+    .where(
+      and(
+        eq(schema.users.id, userId),
+        eq(schema.users.activeWorkspaceId, workspaceId)
+      )
+    )
+    .run();
+
   revalidatePath("/settings/members");
   revalidatePath("/settings");
+}
+
+// ============================================================================
+// Workspace lifecycle — create / switch / rename / leave / delete
+// ============================================================================
+
+/**
+ * Create a brand-new workspace owned by the current user. Mirrors what
+ * the Clerk webhook does on solo signup: workspace + settings + four
+ * default channels + one membership row.
+ *
+ * The new workspace becomes the user's active one immediately, so the
+ * caller can revalidate "/" and the dashboard renders against it.
+ *
+ * Plan limit (free = 3): enforced softly here. Future Round 3 (Stripe)
+ * will replace the constant with a per-plan lookup.
+ */
+const FREE_PLAN_WORKSPACE_LIMIT = 3;
+
+export async function createWorkspace(input: {
+  name: string;
+}): Promise<{ ok: boolean; reason?: string; workspaceId?: string }> {
+  const userId = await getActorId();
+  if (!userId) {
+    return { ok: false, reason: "Not signed in" };
+  }
+  const name = input.name.trim();
+  if (!name) {
+    return { ok: false, reason: "Workspace name is required" };
+  }
+  if (name.length > 60) {
+    return { ok: false, reason: "Workspace name max 60 characters" };
+  }
+
+  // Free-tier soft limit
+  const ownedCount = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.ownerId, userId))
+    .get();
+  if ((ownedCount?.c ?? 0) >= FREE_PLAN_WORKSPACE_LIMIT) {
+    return {
+      ok: false,
+      reason: `Free plan limit reached (${FREE_PLAN_WORKSPACE_LIMIT} workspaces). Upgrade to create more.`,
+    };
+  }
+
+  const workspaceId = `ws_${randomUUID().slice(0, 8)}`;
+
+  await db
+    .insert(schema.workspaces)
+    .values({
+      id: workspaceId,
+      name,
+      plan: "free",
+      ownerId: userId,
+    })
+    .run();
+
+  await db
+    .insert(schema.workspaceSettings)
+    .values({
+      workspaceId,
+      blockReasonDisplay: "name",
+      defaultAssignees: {},
+      aiCutRegenPerDay: 3,
+    })
+    .run();
+
+  // Default channels — same set the Clerk webhook seeds
+  const defaultChannels: Array<{ name: string; platform: string }> = [
+    { name: "YouTube", platform: "youtube" },
+    { name: "TikTok", platform: "tiktok" },
+    { name: "Instagram Reels", platform: "ig_reel" },
+    { name: "Blog", platform: "blog" },
+  ];
+  for (const c of defaultChannels) {
+    await db
+      .insert(schema.channels)
+      .values({
+        id: `ch_${randomUUID().slice(0, 6)}`,
+        workspaceId,
+        name: c.name,
+        platform: c.platform,
+      })
+      .run();
+  }
+
+  // Owner gets full creator access
+  await db
+    .insert(schema.workspaceMembers)
+    .values({
+      userId,
+      workspaceId,
+      roles: ["creator"],
+      accessLevel: "full",
+    })
+    .run();
+
+  // Switch active pointer so the user lands in their new workspace
+  await db
+    .update(schema.users)
+    .set({ activeWorkspaceId: workspaceId })
+    .where(eq(schema.users.id, userId))
+    .run();
+
+  await logActivity({
+    action: "workspace.created",
+    targetType: "workspace",
+    targetId: workspaceId,
+    metadata: { name },
+  });
+
+  revalidatePath("/", "layout");
+  return { ok: true, workspaceId };
+}
+
+/**
+ * Switch the user's active workspace pointer. Validates membership —
+ * silently no-ops if the user isn't a member of the target.
+ */
+export async function switchWorkspace(workspaceId: string): Promise<void> {
+  const userId = await getActorId();
+  if (!userId) return;
+
+  const isMember = await db
+    .select({ workspaceId: schema.workspaceMembers.workspaceId })
+    .from(schema.workspaceMembers)
+    .where(
+      and(
+        eq(schema.workspaceMembers.userId, userId),
+        eq(schema.workspaceMembers.workspaceId, workspaceId)
+      )
+    )
+    .get();
+  if (!isMember) return;
+
+  await db
+    .update(schema.users)
+    .set({ activeWorkspaceId: workspaceId })
+    .where(eq(schema.users.id, userId))
+    .run();
+
+  revalidatePath("/", "layout");
+}
+
+/**
+ * Rename a workspace. Owner-only.
+ */
+export async function renameWorkspace(input: {
+  workspaceId: string;
+  name: string;
+}): Promise<{ ok: boolean; reason?: string }> {
+  const userId = await getActorId();
+  if (!userId) return { ok: false, reason: "Not signed in" };
+
+  const ws = await db
+    .select({ ownerId: schema.workspaces.ownerId })
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.id, input.workspaceId))
+    .get();
+  if (!ws) return { ok: false, reason: "Workspace not found" };
+  if (ws.ownerId !== userId) {
+    return { ok: false, reason: "Only the owner can rename this workspace" };
+  }
+
+  const name = input.name.trim();
+  if (!name) return { ok: false, reason: "Name is required" };
+  if (name.length > 60) return { ok: false, reason: "Max 60 characters" };
+
+  await db
+    .update(schema.workspaces)
+    .set({ name })
+    .where(eq(schema.workspaces.id, input.workspaceId))
+    .run();
+
+  await logActivity({
+    action: "workspace.renamed",
+    targetType: "workspace",
+    targetId: input.workspaceId,
+    metadata: { name },
+  });
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/**
+ * Leave a workspace. Owner cannot leave — they must transfer ownership
+ * or delete the workspace first.
+ *
+ * If the user just left their active workspace, clear the pointer so
+ * the resolver falls back to their oldest remaining membership.
+ */
+export async function leaveWorkspace(workspaceId: string): Promise<{
+  ok: boolean;
+  reason?: string;
+}> {
+  const userId = await getActorId();
+  if (!userId) return { ok: false, reason: "Not signed in" };
+
+  const ws = await db
+    .select({ ownerId: schema.workspaces.ownerId })
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.id, workspaceId))
+    .get();
+  if (!ws) return { ok: false, reason: "Workspace not found" };
+  if (ws.ownerId === userId) {
+    return {
+      ok: false,
+      reason: "Owners can't leave — transfer ownership or delete the workspace first.",
+    };
+  }
+
+  await db
+    .delete(schema.workspaceMembers)
+    .where(
+      and(
+        eq(schema.workspaceMembers.userId, userId),
+        eq(schema.workspaceMembers.workspaceId, workspaceId)
+      )
+    )
+    .run();
+
+  // Clear active pointer if it was this workspace
+  await db
+    .update(schema.users)
+    .set({ activeWorkspaceId: null })
+    .where(
+      and(
+        eq(schema.users.id, userId),
+        eq(schema.users.activeWorkspaceId, workspaceId)
+      )
+    )
+    .run();
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+/**
+ * Delete a workspace. Owner-only. Cascades wipe everything in this
+ * workspace (topics, channels, members, invites, settings) via the
+ * `onDelete: cascade` FKs.
+ */
+export async function deleteWorkspace(workspaceId: string): Promise<{
+  ok: boolean;
+  reason?: string;
+}> {
+  const userId = await getActorId();
+  if (!userId) return { ok: false, reason: "Not signed in" };
+
+  const ws = await db
+    .select({ ownerId: schema.workspaces.ownerId, name: schema.workspaces.name })
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.id, workspaceId))
+    .get();
+  if (!ws) return { ok: false, reason: "Workspace not found" };
+  if (ws.ownerId !== userId) {
+    return { ok: false, reason: "Only the owner can delete this workspace" };
+  }
+
+  // Clear all users' active pointer that targeted this workspace
+  await db
+    .update(schema.users)
+    .set({ activeWorkspaceId: null })
+    .where(eq(schema.users.activeWorkspaceId, workspaceId))
+    .run();
+
+  await db
+    .delete(schema.workspaces)
+    .where(eq(schema.workspaces.id, workspaceId))
+    .run();
+
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 // ============================================================================

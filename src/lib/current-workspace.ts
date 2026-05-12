@@ -1,35 +1,62 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db/client";
 import { getCurrentUserIdAsync } from "@/lib/current-user";
 
 /**
  * Resolve the workspace ID for the current request.
  *
- * Production (Clerk on):
- *   1. Get current user via Clerk session → users.workspaceId
+ * Priority:
+ *   1. `users.activeWorkspaceId` — pointer the user last selected
+ *   2. If that's null OR the user isn't actually a member of it
+ *      anymore (e.g. they got removed from that workspace), fall back
+ *      to their oldest membership
+ *   3. If they have zero memberships → fall back to first workspace
+ *      in DB (dev-mode), then "ws_1" (legacy seed default)
  *
- * Dev mode (Clerk off):
- *   1. Cookie-impersonated user → users.workspaceId
- *   2. Fall back to first workspace in DB
- *   3. Fall back to legacy "ws_1" (seed default)
- *
- * Cached per-request via React's `cache()` would be ideal but adds noise.
- * The DB queries here are cheap (~2ms) so we don't memoize yet.
+ * Important: this function does NOT auto-heal `users.activeWorkspaceId`
+ * when it's stale. Server components that depend on it being correct
+ * should call `ensureActiveWorkspaceMembership()` (server action) when
+ * the user takes a write action — keeps reads side-effect free.
  */
 export async function getCurrentWorkspaceId(): Promise<string> {
   const userId = await getCurrentUserIdAsync();
+
   if (userId) {
     const u = await db
-      .select({ workspaceId: schema.users.workspaceId })
+      .select({ activeWorkspaceId: schema.users.activeWorkspaceId })
       .from(schema.users)
       .where(eq(schema.users.id, userId))
       .get();
-    if (u?.workspaceId) return u.workspaceId;
+
+    // Verify the active pointer still matches a real membership.
+    // (User could have left or been removed since the cookie was last set.)
+    if (u?.activeWorkspaceId) {
+      const stillMember = await db
+        .select({ workspaceId: schema.workspaceMembers.workspaceId })
+        .from(schema.workspaceMembers)
+        .where(
+          and(
+            eq(schema.workspaceMembers.userId, userId),
+            eq(schema.workspaceMembers.workspaceId, u.activeWorkspaceId)
+          )
+        )
+        .get();
+      if (stillMember) return u.activeWorkspaceId;
+    }
+
+    // Active pointer stale or null — pick oldest membership instead.
+    const oldest = await db
+      .select({ workspaceId: schema.workspaceMembers.workspaceId })
+      .from(schema.workspaceMembers)
+      .where(eq(schema.workspaceMembers.userId, userId))
+      .orderBy(schema.workspaceMembers.joinedAt)
+      .limit(1)
+      .get();
+    if (oldest) return oldest.workspaceId;
   }
 
-  // Fall back to first workspace in DB (handles dev mode w/ no users
-  // OR misconfigured Clerk session). Last-resort: "ws_1" (seed default).
+  // Last-resort fallback for dev mode + legacy seeded data.
   const first = await db
     .select({ id: schema.workspaces.id })
     .from(schema.workspaces)

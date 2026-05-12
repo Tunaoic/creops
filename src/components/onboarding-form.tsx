@@ -22,7 +22,11 @@ export function OnboardingForm({
     const trimmed = name.trim();
     if (!trimmed) return;
     startTransition(async () => {
-      await renameWorkspace(workspaceId, trimmed);
+      const result = await renameWorkspace({ workspaceId, name: trimmed });
+      if (!result.ok) {
+        toast.error(result.reason ?? "Couldn't rename");
+        return;
+      }
       toast.success(`Workspace ready: ${trimmed}`);
       router.push("/dashboard");
     });

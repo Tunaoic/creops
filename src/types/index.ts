@@ -72,13 +72,53 @@ export const ACCESS_DESCRIPTION: Record<AccessLevel, string> = {
   readonly: "See everything but can't edit / approve / reject",
 };
 
+/**
+ * A user — identity only. Workspace-scoped attributes (roles, access)
+ * live on `WorkspaceMember` because the same person can be a `creator`
+ * in workspace A and a `watcher` in workspace B.
+ *
+ * `roles` / `accessLevel` are kept here as **convenience copies** for
+ * the user's *current active workspace* — populated by `getCurrentUser`
+ * and `getAllUsers` (which scope by current workspace anyway). Treat
+ * them as a "membership in this view" denormalization, not a global
+ * property of the person.
+ */
 export interface User {
   id: string;
   name: string;
   email: string;
   avatarUrl?: string;
+  /** Roles in the current viewing workspace. Empty = not a member. */
+  roles: UserRole[];
+  /** Access level in the current viewing workspace. */
+  accessLevel: AccessLevel;
+}
+
+/**
+ * Membership row joining user × workspace. Source of truth for roles
+ * and access — `User.roles`/`accessLevel` are derived from this.
+ */
+export interface WorkspaceMember {
+  userId: string;
+  workspaceId: string;
   roles: UserRole[];
   accessLevel: AccessLevel;
+  joinedAt: string;
+}
+
+/**
+ * Workspace summary — what the workspace switcher dropdown renders.
+ */
+export interface WorkspaceSummary {
+  id: string;
+  name: string;
+  plan: string;
+  /** Owner of the workspace — only they can rename / delete. */
+  ownerId: string | null;
+  /** Current user's role in this workspace. */
+  myRoles: UserRole[];
+  /** Total member count, for the dropdown. */
+  memberCount: number;
 }
 
 export interface Channel {

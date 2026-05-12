@@ -39,23 +39,48 @@ export function SettingsClient({
         </p>
       </div>
 
-      {/* Team Members link */}
-      <Link
-        href="/settings/members"
-        className="block bg-surface rounded-2xl border border-border hover:bg-surface-hover transition-colors px-5 py-4 group"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[16px] font-medium text-text mb-0.5">
-              Team members
+      {/* Workspaces + Members links */}
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Link
+          href="/settings/workspaces"
+          className="block bg-surface rounded-2xl border border-border hover:bg-surface-hover transition-colors px-5 py-4 group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[16px] font-medium text-text mb-0.5">
+                Workspaces
+              </div>
+              <div className="text-[13px] text-text-muted">
+                Switch, create, leave
+              </div>
             </div>
-            <div className="text-[13px] text-text-muted">
-              {users.length} {users.length === 1 ? "member" : "members"} · add, edit, remove
-            </div>
+            <ChevronRight
+              className="w-4 h-4 text-text-subtle group-hover:text-text transition-colors"
+              strokeWidth={1.75}
+            />
           </div>
-          <ChevronRight className="w-4 h-4 text-text-subtle group-hover:text-text transition-colors" strokeWidth={1.75} />
-        </div>
-      </Link>
+        </Link>
+
+        <Link
+          href="/settings/members"
+          className="block bg-surface rounded-2xl border border-border hover:bg-surface-hover transition-colors px-5 py-4 group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[16px] font-medium text-text mb-0.5">
+                Team members
+              </div>
+              <div className="text-[13px] text-text-muted">
+                {users.length} {users.length === 1 ? "member" : "members"} · invite, edit, remove
+              </div>
+            </div>
+            <ChevronRight
+              className="w-4 h-4 text-text-subtle group-hover:text-text transition-colors"
+              strokeWidth={1.75}
+            />
+          </div>
+        </Link>
+      </div>
 
       <section className="bg-surface rounded-2xl border border-border overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border">
