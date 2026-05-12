@@ -12,7 +12,8 @@ users, then ship round 2 etc.
 | **1b** | Cloud DB (Turso), async query refactor | ✅ done | Provision Turso + paste DATABASE_URL |
 | **1c** | Vercel scaffold, CI, route group | ✅ done | Push GitHub, connect Vercel |
 | **1d** | Public landing, /api/health, deploy:check, error pages | ✅ done | None |
-| **2** | Email invites (Resend), R2 file upload | — | Provision Resend, R2 |
+| **2** | Email invites (Resend) | ✅ done | Provision Resend, paste key |
+| **2b** | R2 file upload | — | Provision R2 |
 | **3** | Stripe Subscriptions, tier limits | — | Provision Stripe, define tiers |
 
 ## Quick verify before any deploy
@@ -182,17 +183,73 @@ in.
 
 ---
 
-## Round 2 — Email invites + file upload
+## Round 2 — Email invites (this commit)
+
+What ships: **Real email invite flow**. The Settings → Team members page
+now has an "Invite member" button that sends an email via Resend with a
+join link. Recipient clicks → /join/[token] → Clerk sign-up → lands in
+the inviter's workspace automatically. Pending invites list with Resend
++ Cancel buttons. Graceful dev fallback: without `RESEND_API_KEY`, the
+join URL is logged to the server console so you can hand-test the flow.
+
+### Step 1. Provision Resend (3 minutes)
+
+1. Go to https://resend.com → Sign up (Google OAuth = fastest)
+2. Free tier: **100 emails/day, 3000/month** — enough for early launch
+3. **API Keys** → Create API Key → name it "CreOps prod" → copy
+   `re_xxxxxxxxxxxxx`
+
+### Step 2. Add to Vercel
+
+Project → Settings → Environment Variables → add:
+
+```
+RESEND_API_KEY=re_xxxxxxxxxxxxx
+NEXT_PUBLIC_APP_URL=https://creops-ruddy.vercel.app
+```
+
+(`NEXT_PUBLIC_APP_URL` is what gets stamped into the email's join link.
+Without it, falls back to `VERCEL_PROJECT_PRODUCTION_URL` which Vercel
+auto-injects — that works too, this override is for once you wire a
+custom domain.)
+
+Redeploy → invites are now live.
+
+### Step 3. (Optional) Verify your domain
+
+By default emails come from `CreOps <onboarding@resend.dev>` — works,
+but lands in Promotions/Spam more often. To send from your own domain:
+
+1. Resend → Domains → Add `yourdomain.com`
+2. Add the SPF + DKIM DNS records Resend provides (5 min in your DNS
+   provider)
+3. Wait for verification (~10 minutes)
+4. Add to Vercel:
+   ```
+   RESEND_FROM_EMAIL=CreOps <invites@yourdomain.com>
+   ```
+
+### Step 4. Test the loop
+
+1. Sign in to production → Settings → Team members → Invite member
+2. Enter a real email (a 2nd account you control)
+3. Check inbox → click "Accept invite"
+4. If you have an account at that email → lands at /dashboard, joined
+5. If new email → bounces through /sign-up → webhook detects pending
+   invite → drops you in the inviter's workspace (skips the default
+   "{Name}'s Workspace" provisioning)
+
+Estimated remaining round 2b effort: ~20h (R2 file upload).
+
+---
+
+## Round 2b — File upload (Cloudflare R2)
 
 What ships:
-- **Resend** for transactional email — invite team via `/join/<token>`
-  magic link
 - **Cloudflare R2** for file uploads — replace "paste link" model with
   real upload + signed URL playback
-- Welcome email after sign-up
-- Password reset emails (already handled by Clerk)
 
-Estimated effort: ~40h human / ~8h AI-compressed.
+Estimated effort: ~20h human / ~4h AI-compressed.
 
 ---
 

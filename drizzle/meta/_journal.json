@@ -22,6 +22,13 @@
       "when": 1778509635740,
       "tag": "0002_glossy_vance_astro",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1778558889421,
+      "tag": "0003_adorable_barracuda",
+      "breakpoints": true
     }
   ]
 }

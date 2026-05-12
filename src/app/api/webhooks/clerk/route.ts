@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { Webhook } from "svix";
 import { db, schema } from "@/db/client";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -87,48 +87,93 @@ async function provisionNewUser(data: ClerkWebhookEvent["data"]) {
     email.split("@")[0] ||
     "New user";
 
-  const workspaceId = `ws_${randomUUID().slice(0, 8)}`;
-  await db.insert(schema.workspaces)
-    .values({
-      id: workspaceId,
-      name: `${name}'s Workspace`,
-      plan: "free",
-    })
-    .run();
+  // Pending invite for this exact email? If so, the user joins that
+  // workspace with that role instead of getting a fresh one. This is the
+  // path that makes "Invite member" actually onboard a teammate into the
+  // existing workspace (vs. the user landing on /join/[token] manually).
+  // We match on lowercase email — inviteMember already normalizes that way.
+  const pendingInvite = email
+    ? await db
+        .select()
+        .from(schema.workspaceInvites)
+        .where(
+          and(
+            eq(schema.workspaceInvites.email, email.toLowerCase()),
+            isNull(schema.workspaceInvites.acceptedAt),
+            gt(schema.workspaceInvites.expiresAt, new Date())
+          )
+        )
+        .get()
+    : null;
 
-  await db.insert(schema.workspaceSettings)
-    .values({
-      workspaceId,
-      blockReasonDisplay: "name",
-      defaultAssignees: {},
-      aiCutRegenPerDay: 3,
-    })
-    .run();
+  const userId = `u_${randomUUID().slice(0, 8)}`;
+  let workspaceId: string;
+  let roles: string[];
 
-  const defaultChannels = [
-    { id: `ch_${randomUUID().slice(0, 6)}`, name: "YouTube", platform: "youtube" },
-    { id: `ch_${randomUUID().slice(0, 6)}`, name: "TikTok", platform: "tiktok" },
-    { id: `ch_${randomUUID().slice(0, 6)}`, name: "Instagram Reels", platform: "ig_reel" },
-    { id: `ch_${randomUUID().slice(0, 6)}`, name: "Blog", platform: "blog" },
-  ];
-  for (const c of defaultChannels) {
-    await db.insert(schema.channels)
-      .values({ id: c.id, workspaceId, name: c.name, platform: c.platform })
+  if (pendingInvite) {
+    // Attach to the inviter's workspace — skip workspace/channel creation
+    workspaceId = pendingInvite.workspaceId;
+    roles = [pendingInvite.role];
+  } else {
+    // Solo signup → fresh workspace + default channels
+    workspaceId = `ws_${randomUUID().slice(0, 8)}`;
+    roles = ["creator"];
+
+    await db.insert(schema.workspaces)
+      .values({
+        id: workspaceId,
+        name: `${name}'s Workspace`,
+        plan: "free",
+      })
       .run();
+
+    await db.insert(schema.workspaceSettings)
+      .values({
+        workspaceId,
+        blockReasonDisplay: "name",
+        defaultAssignees: {},
+        aiCutRegenPerDay: 3,
+      })
+      .run();
+
+    const defaultChannels = [
+      { id: `ch_${randomUUID().slice(0, 6)}`, name: "YouTube", platform: "youtube" },
+      { id: `ch_${randomUUID().slice(0, 6)}`, name: "TikTok", platform: "tiktok" },
+      { id: `ch_${randomUUID().slice(0, 6)}`, name: "Instagram Reels", platform: "ig_reel" },
+      { id: `ch_${randomUUID().slice(0, 6)}`, name: "Blog", platform: "blog" },
+    ];
+    for (const c of defaultChannels) {
+      await db.insert(schema.channels)
+        .values({ id: c.id, workspaceId, name: c.name, platform: c.platform })
+        .run();
+    }
   }
 
   await db.insert(schema.users)
     .values({
-      id: `u_${randomUUID().slice(0, 8)}`,
+      id: userId,
       workspaceId,
       clerkUserId: data.id,
       name,
       email,
       avatarUrl: data.image_url ?? null,
-      roles: ["creator"],
+      roles,
       accessLevel: "full",
     })
     .run();
+
+  // Mark the invite consumed so future hits to /join/[token] route
+  // straight to the dashboard instead of asking them to "accept" again.
+  if (pendingInvite) {
+    await db
+      .update(schema.workspaceInvites)
+      .set({
+        acceptedBy: userId,
+        acceptedAt: new Date(),
+      })
+      .where(eq(schema.workspaceInvites.token, pendingInvite.token))
+      .run();
+  }
 }
 
 async function syncUserProfile(data: ClerkWebhookEvent["data"]) {

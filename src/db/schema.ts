@@ -286,3 +286,35 @@ export const activityLog = sqliteTable("activity_log", {
     .notNull()
     .default(sql`(unixepoch())`),
 });
+
+// ============================================================================
+// Workspace invites — pending email invites awaiting Clerk signup
+// ============================================================================
+
+export const workspaceInvites = sqliteTable("workspace_invites", {
+  // Token doubles as primary key — used in /join/[token] URL.
+  // 32 char URL-safe random string.
+  token: text("token").primaryKey(),
+  workspaceId: text("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  // Email the invite was sent to (lowercased). The Clerk webhook
+  // matches new signups by primary email against pending invites.
+  email: text("email").notNull(),
+  // Initial role for the new member (creator | operation | designer | watcher | etc.)
+  role: text("role").notNull().default("creator"),
+  // Who sent the invite (nullable to survive the inviter being removed).
+  invitedBy: text("invited_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  // Once accepted, set to the user row ID. Non-null = consumed.
+  acceptedBy: text("accepted_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  acceptedAt: integer("accepted_at", { mode: "timestamp" }),
+  // Default 7 days from creation.
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});

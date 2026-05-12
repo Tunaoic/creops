@@ -1496,6 +1496,228 @@ export async function createMember(input: {
   return { userId };
 }
 
+// ============================================================================
+// Workspace invites — email + magic link join flow
+// ============================================================================
+
+import { sendInviteEmail } from "@/lib/email";
+import { resolveBaseUrl } from "@/lib/url";
+
+/**
+ * Send an email invite to join the current workspace.
+ *
+ * Flow:
+ *   1. Generate URL-safe random token (32 chars)
+ *   2. Insert invite row with 7-day expiry
+ *   3. Send email via Resend (or log in dev mode)
+ *   4. Return result so the UI can toast success / failure
+ *
+ * If an invite already exists for this email + workspace combo and is
+ * still pending (not accepted, not expired), reuse the existing token —
+ * lets you "resend" without spamming new tokens.
+ */
+export async function inviteMember(input: {
+  email: string;
+  role: string;
+}): Promise<{
+  ok: boolean;
+  reason?: string;
+  delivered?: boolean;
+  joinUrl?: string;
+}> {
+  const email = input.email.trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    return { ok: false, reason: "Invalid email" };
+  }
+
+  const workspaceId = await getCurrentWorkspaceId();
+  const inviterId = await getActorId();
+
+  // Already a member of this workspace?
+  const existingMember = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(
+      and(
+        eq(schema.users.workspaceId, workspaceId),
+        eq(schema.users.email, email)
+      )
+    )
+    .get();
+  if (existingMember) {
+    return { ok: false, reason: `${email} is already a member` };
+  }
+
+  // Reuse pending invite if one exists
+  const now = new Date();
+  const existingInvite = await db
+    .select()
+    .from(schema.workspaceInvites)
+    .where(
+      and(
+        eq(schema.workspaceInvites.workspaceId, workspaceId),
+        eq(schema.workspaceInvites.email, email),
+        isNull(schema.workspaceInvites.acceptedAt)
+      )
+    )
+    .get();
+
+  let token: string;
+  if (existingInvite && existingInvite.expiresAt > now) {
+    token = existingInvite.token;
+    // Update role + reset expiry
+    await db
+      .update(schema.workspaceInvites)
+      .set({
+        role: input.role,
+        invitedBy: inviterId,
+        expiresAt: new Date(now.getTime() + 7 * 86400_000),
+      })
+      .where(eq(schema.workspaceInvites.token, token))
+      .run();
+  } else {
+    // New token (URL-safe — strip non-alphanumeric)
+    token = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "").slice(0, 8);
+    await db.insert(schema.workspaceInvites).values({
+      token,
+      workspaceId,
+      email,
+      role: input.role,
+      invitedBy: inviterId,
+      expiresAt: new Date(now.getTime() + 7 * 86400_000),
+    }).run();
+  }
+
+  // Look up workspace name + inviter name for the email
+  const workspace = await db
+    .select({ name: schema.workspaces.name })
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.id, workspaceId))
+    .get();
+
+  const inviter = inviterId
+    ? await db
+        .select({ name: schema.users.name })
+        .from(schema.users)
+        .where(eq(schema.users.id, inviterId))
+        .get()
+    : null;
+
+  const joinUrl = `${resolveBaseUrl().replace(/\/$/, "")}/join/${token}`;
+
+  const sendResult = await sendInviteEmail({
+    to: email,
+    inviterName: inviter?.name ?? "A teammate",
+    workspaceName: workspace?.name ?? "your workspace",
+    joinUrl,
+    role: input.role,
+  });
+
+  await logActivity({
+    action: "member.invited",
+    targetType: "user",
+    targetId: token,
+    metadata: { email, role: input.role, delivered: sendResult.delivered },
+  });
+
+  revalidatePath("/settings/members");
+
+  return {
+    ok: sendResult.ok,
+    reason: sendResult.ok ? undefined : sendResult.detail,
+    delivered: sendResult.delivered,
+    joinUrl,
+  };
+}
+
+/**
+ * Accept a workspace invite. Called from /join/[token] after the user
+ * has signed up via Clerk and we know their identity.
+ *
+ * Idempotent — calling twice with the same token is a no-op the second
+ * time (returns the same workspaceId).
+ */
+export async function acceptInvite(token: string): Promise<{
+  ok: boolean;
+  reason?: string;
+  workspaceId?: string;
+}> {
+  const userId = await getActorId();
+  if (!userId) {
+    return { ok: false, reason: "Not signed in" };
+  }
+
+  const invite = await db
+    .select()
+    .from(schema.workspaceInvites)
+    .where(eq(schema.workspaceInvites.token, token))
+    .get();
+
+  if (!invite) {
+    return { ok: false, reason: "Invite not found or expired" };
+  }
+  if (invite.expiresAt < new Date()) {
+    return { ok: false, reason: "Invite has expired" };
+  }
+  if (invite.acceptedAt) {
+    // Already accepted — return its workspace so we can route the user there
+    return { ok: true, workspaceId: invite.workspaceId };
+  }
+
+  // Move the user to the invite's workspace + apply role
+  await db
+    .update(schema.users)
+    .set({
+      workspaceId: invite.workspaceId,
+      roles: [invite.role],
+    })
+    .where(eq(schema.users.id, userId))
+    .run();
+
+  // Mark invite consumed
+  await db
+    .update(schema.workspaceInvites)
+    .set({
+      acceptedBy: userId,
+      acceptedAt: new Date(),
+    })
+    .where(eq(schema.workspaceInvites.token, token))
+    .run();
+
+  await logActivity({
+    action: "member.invite_accepted",
+    targetType: "user",
+    targetId: userId,
+    metadata: { token, workspaceId: invite.workspaceId },
+  });
+
+  revalidatePath("/", "layout");
+  revalidatePath("/settings/members");
+
+  return { ok: true, workspaceId: invite.workspaceId };
+}
+
+export async function cancelInvite(token: string): Promise<void> {
+  await db
+    .delete(schema.workspaceInvites)
+    .where(eq(schema.workspaceInvites.token, token))
+    .run();
+  revalidatePath("/settings/members");
+}
+
+export async function resendInvite(token: string): Promise<{ ok: boolean; reason?: string; delivered?: boolean }> {
+  const invite = await db
+    .select()
+    .from(schema.workspaceInvites)
+    .where(eq(schema.workspaceInvites.token, token))
+    .get();
+  if (!invite) return { ok: false, reason: "Invite not found" };
+  if (invite.acceptedAt) return { ok: false, reason: "Already accepted" };
+
+  // Re-call inviteMember which will reuse the same token + extend expiry
+  return inviteMember({ email: invite.email, role: invite.role });
+}
+
 export async function updateMember(input: {
   userId: string;
   name?: string;

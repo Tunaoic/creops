@@ -130,8 +130,62 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 export async function getAllUsers(): Promise<User[]> {
-  const rows = await db.select().from(schema.users).all();
+  const workspaceId = await getCurrentWorkspaceId();
+  const rows = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.workspaceId, workspaceId))
+    .all();
   return rows.map(mapUser);
+}
+
+export interface PendingInvite {
+  token: string;
+  email: string;
+  role: string;
+  invitedByName: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
+/**
+ * Pending invites for the current workspace — i.e. not yet accepted.
+ * Expired invites are still returned (the UI labels them so the user can
+ * resend, which extends the expiry). Sorted newest-first.
+ */
+export async function getPendingInvites(): Promise<PendingInvite[]> {
+  const workspaceId = await getCurrentWorkspaceId();
+  const rows = await db
+    .select({
+      token: schema.workspaceInvites.token,
+      email: schema.workspaceInvites.email,
+      role: schema.workspaceInvites.role,
+      expiresAt: schema.workspaceInvites.expiresAt,
+      createdAt: schema.workspaceInvites.createdAt,
+      invitedByName: schema.users.name,
+    })
+    .from(schema.workspaceInvites)
+    .leftJoin(
+      schema.users,
+      eq(schema.users.id, schema.workspaceInvites.invitedBy)
+    )
+    .where(
+      and(
+        eq(schema.workspaceInvites.workspaceId, workspaceId),
+        isNull(schema.workspaceInvites.acceptedAt)
+      )
+    )
+    .orderBy(desc(schema.workspaceInvites.createdAt))
+    .all();
+
+  return rows.map((r) => ({
+    token: r.token,
+    email: r.email,
+    role: r.role,
+    invitedByName: r.invitedByName ?? null,
+    expiresAt: r.expiresAt,
+    createdAt: r.createdAt,
+  }));
 }
 
 export async function getUserById(id: string): Promise<User | null> {
