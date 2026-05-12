@@ -7,9 +7,8 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LangToggle } from "@/components/lang-toggle";
 import { UserSwitcher } from "@/components/user-switcher";
-import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import type { NotificationEntry } from "@/db/queries";
-import type { User, WorkspaceSummary } from "@/types";
+import type { User } from "@/types";
 import type { Locale } from "@/lib/i18n";
 
 export function TopBar({
@@ -18,8 +17,6 @@ export function TopBar({
   unreadCount,
   members,
   currentUserId,
-  workspaces,
-  activeWorkspaceId,
   locale,
   showImpersonator = true,
 }: {
@@ -28,8 +25,6 @@ export function TopBar({
   unreadCount: number;
   members: User[];
   currentUserId: string;
-  workspaces: WorkspaceSummary[];
-  activeWorkspaceId: string;
   locale: Locale;
   /** False in production (Clerk auth on) — hides the dev impersonation switcher. */
   showImpersonator?: boolean;
@@ -95,10 +90,6 @@ export function TopBar({
 
       {/* Right cluster */}
       <div className="flex items-center gap-2 shrink-0">
-        <WorkspaceSwitcher
-          workspaces={workspaces}
-          activeWorkspaceId={activeWorkspaceId}
-        />
         {showImpersonator && (
           <UserSwitcher members={members} currentUserId={currentUserId} />
         )}

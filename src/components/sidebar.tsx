@@ -1,14 +1,22 @@
-import { getCurrentUser } from "@/db/queries";
+import { getCurrentUser, getMyWorkspaces } from "@/db/queries";
+import { getCurrentWorkspaceId } from "@/lib/current-workspace";
 import { getLocale, withLocale } from "@/lib/i18n";
 import { SidebarClient } from "./sidebar-client";
 
 export async function Sidebar() {
-  const [user, locale] = await Promise.all([getCurrentUser(), getLocale()]);
+  const [user, workspaces, activeWorkspaceId, locale] = await Promise.all([
+    getCurrentUser(),
+    getMyWorkspaces(),
+    getCurrentWorkspaceId(),
+    getLocale(),
+  ]);
   const tr = withLocale(locale);
   return (
     <SidebarClient
       userName={user.name}
       userEmail={user.email}
+      workspaces={workspaces}
+      activeWorkspaceId={activeWorkspaceId}
       labels={{
         workspace: tr("workspace"),
         views: tr("views"),

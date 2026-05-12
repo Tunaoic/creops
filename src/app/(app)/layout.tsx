@@ -6,11 +6,9 @@ import {
   getAllTopics,
   getAllUsers,
   getCurrentUser,
-  getMyWorkspaces,
   getNotificationsForCurrentUser,
   getUnreadNotificationCount,
 } from "@/db/queries";
-import { getCurrentWorkspaceId } from "@/lib/current-workspace";
 import { getLocale } from "@/lib/i18n";
 import { isClerkEnabled } from "@/lib/auth-config";
 
@@ -30,27 +28,16 @@ export default async function AppLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [
-    topics,
-    members,
-    currentUser,
-    workspaces,
-    activeWorkspaceId,
-    notifications,
-    unreadCount,
-    locale,
-    clerkOn,
-  ] = await Promise.all([
-    getAllTopics(),
-    getAllUsers(),
-    getCurrentUser(),
-    getMyWorkspaces(),
-    getCurrentWorkspaceId(),
-    getNotificationsForCurrentUser(15),
-    getUnreadNotificationCount(),
-    getLocale(),
-    isClerkEnabled(),
-  ]);
+  const [topics, members, currentUser, notifications, unreadCount, locale, clerkOn] =
+    await Promise.all([
+      getAllTopics(),
+      getAllUsers(),
+      getCurrentUser(),
+      getNotificationsForCurrentUser(15),
+      getUnreadNotificationCount(),
+      getLocale(),
+      isClerkEnabled(),
+    ]);
   const topicNames = Object.fromEntries(topics.map((t) => [t.id, t.name]));
 
   return (
@@ -63,8 +50,6 @@ export default async function AppLayout({
           unreadCount={unreadCount}
           members={members}
           currentUserId={currentUser.id}
-          workspaces={workspaces}
-          activeWorkspaceId={activeWorkspaceId}
           locale={locale}
           showImpersonator={!clerkOn}
         />

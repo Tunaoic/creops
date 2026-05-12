@@ -1942,6 +1942,26 @@ export async function createWorkspace(input: {
     return { ok: false, reason: "Workspace name max 60 characters" };
   }
 
+  // Idempotency: if the same user just created a workspace with this
+  // exact name in the last 10 seconds, return that one instead of
+  // making a duplicate. Catches double-clicks, double-fired transitions,
+  // and the React 19 strict-mode replay in dev. Cheap — indexed scan
+  // on owner_id + name is O(few rows).
+  const recent = await db
+    .select({ id: schema.workspaces.id })
+    .from(schema.workspaces)
+    .where(
+      and(
+        eq(schema.workspaces.ownerId, userId),
+        eq(schema.workspaces.name, name),
+        sql`${schema.workspaces.createdAt} > ${Math.floor(Date.now() / 1000) - 10}`
+      )
+    )
+    .get();
+  if (recent) {
+    return { ok: true, workspaceId: recent.id };
+  }
+
   // Free-tier soft limit
   const ownedCount = await db
     .select({ c: sql<number>`count(*)` })

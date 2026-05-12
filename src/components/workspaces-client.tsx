@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -323,22 +323,32 @@ function CreateRow({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [pending, startTransition] = useTransition();
+  // Synchronous lock — useTransition's `pending` doesn't flip until the
+  // transition starts, so a fast double-click could fire submit() twice
+  // before the disabled prop kicks in. The ref is set instantly.
+  const submittingRef = useRef(false);
 
   function submit() {
+    if (submittingRef.current) return;
     const trimmed = name.trim();
     if (!trimmed) {
       toast.error("Name is required");
       return;
     }
+    submittingRef.current = true;
     startTransition(async () => {
-      const result = await createWorkspace({ name: trimmed });
-      if (!result.ok) {
-        toast.error(result.reason ?? "Couldn't create");
-        return;
+      try {
+        const result = await createWorkspace({ name: trimmed });
+        if (!result.ok) {
+          toast.error(result.reason ?? "Couldn't create");
+          return;
+        }
+        toast.success(`Created ${trimmed}`);
+        router.refresh();
+        onClose();
+      } finally {
+        submittingRef.current = false;
       }
-      toast.success(`Created ${trimmed}`);
-      router.refresh();
-      onClose();
     });
   }
 

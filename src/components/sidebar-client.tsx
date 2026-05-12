@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderOpen, Search, Settings, Plus, LayoutGrid, CalendarDays, Inbox, Bell } from "lucide-react";
+import {
+  LayoutDashboard,
+  FolderOpen,
+  Search,
+  Settings,
+  Plus,
+  LayoutGrid,
+  CalendarDays,
+  Inbox,
+  Bell,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import type { WorkspaceSummary } from "@/types";
 
 export interface SidebarLabels {
   workspace: string;
@@ -23,22 +35,41 @@ export interface SidebarLabels {
 export function SidebarClient({
   userName,
   userEmail,
+  workspaces,
+  activeWorkspaceId,
   labels,
 }: {
   userName: string;
   userEmail: string;
+  workspaces: WorkspaceSummary[];
+  activeWorkspaceId: string;
   labels: SidebarLabels;
 }) {
   const NAV_ITEMS = [
-    { href: "/dashboard", label: labels.dashboard, icon: LayoutDashboard, hint: "G D" },
+    {
+      href: "/dashboard",
+      label: labels.dashboard,
+      icon: LayoutDashboard,
+      hint: "G D",
+    },
     { href: "/inbox", label: labels.inbox, icon: Inbox, hint: "G I" },
-    { href: "/notifications", label: labels.notifications, icon: Bell, hint: "G N" },
+    {
+      href: "/notifications",
+      label: labels.notifications,
+      icon: Bell,
+      hint: "G N",
+    },
   ];
 
   const VIEWS = [
     { href: "/topics", label: labels.topics, icon: FolderOpen, hint: "G T" },
     { href: "/board", label: labels.board, icon: LayoutGrid, hint: "G B" },
-    { href: "/calendar", label: labels.calendar, icon: CalendarDays, hint: "G C" },
+    {
+      href: "/calendar",
+      label: labels.calendar,
+      icon: CalendarDays,
+      hint: "G C",
+    },
   ];
 
   const TOOLS = [
@@ -50,21 +81,16 @@ export function SidebarClient({
 
   return (
     <aside className="w-64 border-r border-border bg-surface flex flex-col h-screen sticky top-0">
-      {/* Brand — clean, no glow effects */}
-      <div className="px-5 pt-5 pb-4 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
-          <span className="font-semibold text-[13px] text-accent leading-none">
-            CO
-          </span>
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span className="text-[17px] font-semibold tracking-tight">CreOps</span>
-          <span className="text-[12px] text-text-subtle">Content workflow</span>
-        </div>
-      </div>
+      {/* Workspace switcher — top of sidebar, the highest-level container.
+          Hides the CreOps brand chrome behind it; brand identity lives in
+          the marketing site / login page, not the working surface. */}
+      <WorkspaceSwitcher
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+      />
 
-      {/* New Topic CTA — Apple pill button */}
-      <div className="px-3 pb-3">
+      {/* New Topic CTA */}
+      <div className="px-3 pb-3 pt-1">
         <Link
           href="/topics/new"
           className="group flex items-center justify-between gap-2 w-full pl-4 pr-3 py-2 rounded-full bg-accent text-accent-fg text-[14px] font-medium transition-opacity hover:opacity-88"
@@ -73,13 +99,19 @@ export function SidebarClient({
             <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
             {labels.newTopic}
           </span>
-          <kbd className="text-[10px] font-medium opacity-70 bg-transparent border-0">⌘N</kbd>
+          <kbd className="text-[10px] font-medium opacity-70 bg-transparent border-0">
+            ⌘N
+          </kbd>
         </Link>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 px-2 space-y-5 overflow-y-auto pb-4">
-        <NavGroup label={labels.workspace} items={NAV_ITEMS} pathname={pathname} />
+        <NavGroup
+          label={labels.workspace}
+          items={NAV_ITEMS}
+          pathname={pathname}
+        />
         <NavGroup label={labels.views} items={VIEWS} pathname={pathname} />
         <NavGroup label={labels.tools} items={TOOLS} pathname={pathname} />
       </nav>
@@ -113,7 +145,6 @@ function NavGroup({
 }) {
   return (
     <div>
-      {/* Sentence case, regular weight, no tracking-wider — Apple sidebar style */}
       <div className="text-[12px] text-text-subtle px-3 pb-1.5 font-medium">
         {label}
       </div>
