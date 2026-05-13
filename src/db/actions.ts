@@ -1734,7 +1734,12 @@ export async function cancelInvite(token: string): Promise<void> {
   revalidatePath("/settings/members");
 }
 
-export async function resendInvite(token: string): Promise<{ ok: boolean; reason?: string; delivered?: boolean }> {
+export async function resendInvite(token: string): Promise<{
+  ok: boolean;
+  reason?: string;
+  delivered?: boolean;
+  joinUrl?: string;
+}> {
   const invite = await db
     .select()
     .from(schema.workspaceInvites)
@@ -1743,7 +1748,9 @@ export async function resendInvite(token: string): Promise<{ ok: boolean; reason
   if (!invite) return { ok: false, reason: "Invite not found" };
   if (invite.acceptedAt) return { ok: false, reason: "Already accepted" };
 
-  // Re-call inviteMember which will reuse the same token + extend expiry
+  // Re-call inviteMember which will reuse the same token + extend expiry.
+  // Returns joinUrl too so the UI can offer a manual-copy fallback when
+  // Resend can't deliver (free tier, bounced address, etc.).
   return inviteMember({ email: invite.email, role: invite.role });
 }
 

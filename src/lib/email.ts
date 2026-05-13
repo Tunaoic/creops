@@ -64,10 +64,17 @@ export async function sendInviteEmail(input: InviteEmailInput): Promise<SendResu
     });
     if (result.error) {
       console.error("[email] resend error:", result.error);
+      const msg = result.error.message ?? "";
+      // Resend free tier without a verified domain restricts sends to
+      // the account owner's own email. Surface a friendlier message
+      // so the UI doesn't leak Resend's raw copy at the user.
+      const friendly = /only send testing emails/i.test(msg)
+        ? "Resend chưa verify domain — chỉ gửi được tới email của chủ tài khoản. Verify domain ở resend.com/domains để gửi cho người khác."
+        : msg;
       return {
         ok: false,
         delivered: false,
-        detail: `resend-error: ${result.error.message}`,
+        detail: friendly,
       };
     }
     return {

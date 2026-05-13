@@ -287,6 +287,17 @@ function InviteRow({ onClose }: { onClose: () => void }) {
   const [role, setRole] = useState<UserRole>("creator");
   const [pending, startTransition] = useTransition();
 
+  function copyJoinLink(joinUrl: string) {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      toast.error("Clipboard unavailable — copy the URL from the address bar");
+      return;
+    }
+    navigator.clipboard
+      .writeText(joinUrl)
+      .then(() => toast.success("Join link copied — paste it to your teammate"))
+      .catch(() => toast.error("Couldn't copy — try selecting the URL manually"));
+  }
+
   function submit() {
     const cleaned = email.trim().toLowerCase();
     if (!cleaned || !cleaned.includes("@")) {
@@ -295,15 +306,45 @@ function InviteRow({ onClose }: { onClose: () => void }) {
     }
     startTransition(async () => {
       const result = await inviteMember({ email: cleaned, role });
+
+      // Email send failed but invite row exists → offer manual copy.
+      // The invite is real, it just couldn't be delivered (Resend
+      // restrictions, bounced address, etc.). Don't leave the user
+      // stuck.
       if (!result.ok) {
+        if (result.joinUrl) {
+          toast.error(result.reason ?? "Email couldn't be sent", {
+            description:
+              "Invite is created — copy the link and send it manually.",
+            duration: 12000,
+            action: {
+              label: "Copy link",
+              onClick: () => copyJoinLink(result.joinUrl!),
+            },
+          });
+          router.refresh();
+          onClose();
+          return;
+        }
         toast.error(result.reason ?? "Could not send invite");
         return;
       }
+
       if (result.delivered) {
         toast.success(`Invite sent to ${cleaned}`);
       } else {
-        // Dev fallback — no Resend key, link logged to server console
-        toast.success("Invite created (dev mode — check server logs for link)");
+        // Dev fallback — no Resend key, link logged to server console.
+        // Also offer a copy action so the dev can grab it from UI.
+        toast.success("Invite created (dev mode — email not sent)", {
+          description: "Copy the join link to share manually.",
+          duration: 12000,
+          action: result.joinUrl
+            ? {
+                label: "Copy link",
+                onClick: () => copyJoinLink(result.joinUrl!),
+              }
+            : undefined,
+        });
       }
       router.refresh();
       onClose();
@@ -379,18 +420,55 @@ function PendingInviteRow({ invite }: { invite: PendingInvite }) {
     Math.ceil((invite.expiresAt.getTime() - Date.now()) / 86400_000)
   );
 
+  function copyJoinLink(joinUrl: string) {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      toast.error("Clipboard unavailable — copy the URL from the address bar");
+      return;
+    }
+    navigator.clipboard
+      .writeText(joinUrl)
+      .then(() => toast.success("Join link copied"))
+      .catch(() => toast.error("Couldn't copy"));
+  }
+
   function handleResend() {
     startTransition(async () => {
       const result = await resendInvite(invite.token);
+
+      // Same fallback as the create-invite flow: email-send failure
+      // shouldn't strand the user — the invite row is real, just offer
+      // the link to copy manually.
       if (!result.ok) {
+        if (result.joinUrl) {
+          toast.error(result.reason ?? "Email couldn't be sent", {
+            description: "Copy the link and send it manually.",
+            duration: 12000,
+            action: {
+              label: "Copy link",
+              onClick: () => copyJoinLink(result.joinUrl!),
+            },
+          });
+          router.refresh();
+          return;
+        }
         toast.error(result.reason ?? "Could not resend");
         return;
       }
-      toast.success(
-        result.delivered
-          ? `Resent to ${invite.email}`
-          : "Resent (dev mode — check server logs)"
-      );
+
+      if (result.delivered) {
+        toast.success(`Resent to ${invite.email}`);
+      } else {
+        toast.success("Invite extended (email not sent — dev mode)", {
+          description: "Copy the join link to share manually.",
+          duration: 12000,
+          action: result.joinUrl
+            ? {
+                label: "Copy link",
+                onClick: () => copyJoinLink(result.joinUrl!),
+              }
+            : undefined,
+        });
+      }
       router.refresh();
     });
   }
