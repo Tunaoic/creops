@@ -225,6 +225,36 @@ export async function getMyWorkspaces() {
   return enriched;
 }
 
+// ----------------------------------------------------------------------------
+// Social channels — connected platform accounts for the current workspace
+// ----------------------------------------------------------------------------
+
+export async function getSocialAccounts() {
+  const workspaceId = await getCurrentWorkspaceId();
+  const rows = await db
+    .select()
+    .from(schema.socialAccounts)
+    .where(eq(schema.socialAccounts.workspaceId, workspaceId))
+    .all();
+  return rows.map((r) => ({
+    workspaceId: r.workspaceId,
+    platform: r.platform as
+      | "youtube"
+      | "tiktok"
+      | "instagram"
+      | "facebook",
+    accountId: r.accountId,
+    accountHandle: r.accountHandle,
+    accountAvatarUrl: r.accountAvatarUrl ?? undefined,
+    status: r.status as "active" | "expired" | "revoked",
+    connectedBy: r.connectedBy ?? undefined,
+    connectedAt: r.connectedAt.toISOString(),
+    lastSyncedAt: r.lastSyncedAt?.toISOString(),
+    scopes: (r.scopes as string[]) ?? [],
+    metadata: (r.metadata as Record<string, unknown>) ?? undefined,
+  }));
+}
+
 export interface PendingInvite {
   token: string;
   email: string;

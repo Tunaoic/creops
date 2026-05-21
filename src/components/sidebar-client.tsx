@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Inbox,
   Bell,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
@@ -20,6 +21,7 @@ import type { WorkspaceSummary } from "@/types";
 export interface SidebarLabels {
   workspace: string;
   views: string;
+  insights: string;
   tools: string;
   dashboard: string;
   inbox: string;
@@ -27,6 +29,7 @@ export interface SidebarLabels {
   topics: string;
   board: string;
   calendar: string;
+  socialChannels: string;
   search: string;
   settings: string;
   newTopic: string;
@@ -72,6 +75,15 @@ export function SidebarClient({
     },
   ];
 
+  const INSIGHTS = [
+    {
+      href: "/social-channels",
+      label: labels.socialChannels,
+      icon: BarChart3,
+      hint: "G S",
+    },
+  ];
+
   const TOOLS = [
     { href: "/search", label: labels.search, icon: Search, hint: "⌘K" },
     { href: "/settings", label: labels.settings, icon: Settings, hint: "⌘," },
@@ -113,6 +125,11 @@ export function SidebarClient({
           pathname={pathname}
         />
         <NavGroup label={labels.views} items={VIEWS} pathname={pathname} />
+        <NavGroup
+          label={labels.insights}
+          items={INSIGHTS}
+          pathname={pathname}
+        />
         <NavGroup label={labels.tools} items={TOOLS} pathname={pathname} />
       </nav>
 

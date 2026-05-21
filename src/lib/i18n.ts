@@ -27,6 +27,7 @@ export const dict = {
   // Sidebar groups
   workspace: { en: "Workspace", vi: "Không gian" },
   views: { en: "Views", vi: "Chế độ xem" },
+  insights: { en: "Insights", vi: "Phân tích" },
   tools: { en: "Tools", vi: "Công cụ" },
 
   // Sidebar nav items
@@ -36,6 +37,7 @@ export const dict = {
   nav_topics: { en: "Topics", vi: "Chủ đề" },
   nav_board: { en: "Board", vi: "Bảng" },
   nav_calendar: { en: "Calendar", vi: "Lịch" },
+  nav_social_channels: { en: "Social channels", vi: "Kênh social" },
   nav_search: { en: "Search", vi: "Tìm kiếm" },
   nav_settings: { en: "Settings", vi: "Cài đặt" },
   new_topic: { en: "New Topic", vi: "Chủ đề mới" },

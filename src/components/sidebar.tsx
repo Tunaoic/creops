@@ -20,6 +20,7 @@ export async function Sidebar() {
       labels={{
         workspace: tr("workspace"),
         views: tr("views"),
+        insights: tr("insights"),
         tools: tr("tools"),
         dashboard: tr("nav_dashboard"),
         inbox: tr("nav_inbox"),
@@ -27,6 +28,7 @@ export async function Sidebar() {
         topics: tr("nav_topics"),
         board: tr("nav_board"),
         calendar: tr("nav_calendar"),
+        socialChannels: tr("nav_social_channels"),
         search: tr("nav_search"),
         settings: tr("nav_settings"),
         newTopic: tr("new_topic"),

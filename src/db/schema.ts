@@ -326,6 +326,66 @@ export const activityLog = sqliteTable("activity_log", {
 });
 
 // ============================================================================
+// Social accounts — OAuth-connected platforms for reporting (read-only).
+//
+// Workspace-scoped: any member can see connections, owner manages them.
+// Tokens stored as plaintext in V1 — Turso credentials are sealed in
+// Vercel + the DB is private. Encryption at rest is a hardening task
+// before GA (Round 4).
+//
+// `status` lifecycle:
+//   active  → token valid, can pull metrics
+//   expired → refresh failed, user must reconnect
+//   revoked → disconnected from CreOps OR revoked at the platform
+//
+// Composite PK on (workspace_id, platform, account_id) — one workspace
+// can connect multiple accounts on the same platform (e.g. two YT
+// channels).
+// ============================================================================
+
+export const socialAccounts = sqliteTable(
+  "social_accounts",
+  {
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    // "youtube" | "tiktok" | "instagram" | "facebook" — plain text so
+    // adding a platform is a 1-line change, not a migration.
+    platform: text("platform").notNull(),
+    // Platform's own ID (YouTube channelId, FB Page id, etc.)
+    accountId: text("account_id").notNull(),
+    // Display name shown in UI — channel name, @username, page title.
+    accountHandle: text("account_handle").notNull(),
+    accountAvatarUrl: text("account_avatar_url"),
+    // OAuth artifacts.
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    tokenExpiresAt: integer("token_expires_at", { mode: "timestamp" }),
+    scopes: text("scopes", { mode: "json" })
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'`),
+    // active | expired | revoked
+    status: text("status").notNull().default("active"),
+    // Who connected it (nullable — survives them leaving the workspace).
+    connectedBy: text("connected_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    connectedAt: integer("connected_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    // Last successful metric pull. Null = never synced.
+    lastSyncedAt: integer("last_synced_at", { mode: "timestamp" }),
+    // Platform-specific extras (subscriber count, region) cached so we
+    // don't call the API on every page load.
+    metadata: text("metadata", { mode: "json" }).$type<
+      Record<string, unknown>
+    >(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.platform, t.accountId] })]
+);
+
+// ============================================================================
 // Workspace invites — pending email invites awaiting Clerk signup
 // ============================================================================
 

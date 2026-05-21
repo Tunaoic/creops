@@ -245,3 +245,69 @@ export const ASSIGNABLE_ROLES: UserRole[] = [
   "designer",
   "watcher",
 ];
+
+// ============================================================================
+// Social channels (Phase 3 — performance reporting)
+// ============================================================================
+
+export type SocialPlatform = "youtube" | "tiktok" | "instagram" | "facebook";
+
+export type SocialAccountStatus = "active" | "expired" | "revoked";
+
+/**
+ * Per-platform display metadata. UI reads `available` to decide whether
+ * to render a working Connect button or a "Coming soon" badge — keeps
+ * the full vision visible while we wait on platform-side approvals.
+ */
+export interface SocialPlatformDef {
+  id: SocialPlatform;
+  label: string;
+  description: string;
+  available: boolean;
+  /** Shown when `available` is false (e.g. "Pending TikTok approval"). */
+  comingSoonReason?: string;
+}
+
+export const SOCIAL_PLATFORMS: SocialPlatformDef[] = [
+  {
+    id: "youtube",
+    label: "YouTube",
+    description: "Views, watch time, subscribers — per video.",
+    available: true,
+  },
+  {
+    id: "tiktok",
+    label: "TikTok",
+    description: "Views, likes, shares, completion rate.",
+    available: false,
+    comingSoonReason: "Pending TikTok Business API approval (~2-4 weeks)",
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    description: "Reels reach, saves, replays — via Meta Graph.",
+    available: false,
+    comingSoonReason: "Pending Meta app review (~2-4 weeks)",
+  },
+  {
+    id: "facebook",
+    label: "Facebook Page",
+    description: "Post reach, engagement, video views.",
+    available: false,
+    comingSoonReason: "Pending Meta app review (~2-4 weeks)",
+  },
+];
+
+export interface SocialAccount {
+  workspaceId: string;
+  platform: SocialPlatform;
+  accountId: string;
+  accountHandle: string;
+  accountAvatarUrl?: string;
+  status: SocialAccountStatus;
+  connectedBy?: string;
+  connectedAt: string;
+  lastSyncedAt?: string;
+  scopes: string[];
+  metadata?: Record<string, unknown>;
+}

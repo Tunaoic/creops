@@ -2214,6 +2214,112 @@ export async function deleteWorkspace(workspaceId: string): Promise<{
 }
 
 // ============================================================================
+// Social channels — connect / disconnect platform accounts (Phase 3a stub)
+//
+// `connectSocialChannel` is a PLACEHOLDER until Phase 3b wires real OAuth.
+// It writes a row marked status="expired" + a metadata flag so the UI can
+// render it as "Demo connection" — proves the schema + cards work without
+// asking the user to set up Google Cloud yet.
+//
+// `disconnectSocialChannel` is real — drops the row.
+// ============================================================================
+
+const STUB_HANDLES: Record<string, string> = {
+  youtube: "Demo Channel",
+  tiktok: "@demo_creator",
+  instagram: "@demo.creator",
+  facebook: "Demo Page",
+};
+
+export async function connectSocialChannel(input: {
+  platform: string;
+}): Promise<{
+  ok: boolean;
+  reason?: string;
+  accountId?: string;
+  /** True when we wrote a real connection. False = Phase 3b not wired yet. */
+  isDemo?: boolean;
+}> {
+  const userId = await getActorId();
+  if (!userId) return { ok: false, reason: "Not signed in" };
+
+  const platform = input.platform.toLowerCase();
+  if (!STUB_HANDLES[platform]) {
+    return { ok: false, reason: `Unknown platform: ${platform}` };
+  }
+
+  // YouTube is the only "real" target for Phase 3b. Others are TikTok/
+  // Meta which need their respective approval programs — we surface
+  // that to the user via the UI's coming-soon state, but if they hit
+  // this endpoint directly we still want a clear error.
+  if (platform !== "youtube") {
+    return {
+      ok: false,
+      reason: "OAuth for this platform isn't enabled yet — see the card for details.",
+    };
+  }
+
+  const workspaceId = await getCurrentWorkspaceId();
+  const accountId = `demo_${randomUUID().slice(0, 8)}`;
+
+  await db
+    .insert(schema.socialAccounts)
+    .values({
+      workspaceId,
+      platform,
+      accountId,
+      accountHandle: STUB_HANDLES[platform],
+      // Mark expired so the UI doesn't pretend metrics will start
+      // flowing — Phase 3b will replace this row with a real OAuth one.
+      status: "expired",
+      connectedBy: userId,
+      scopes: [],
+      metadata: { demo: true, note: "Phase 3a stub — Phase 3b wires real OAuth" },
+    })
+    .run();
+
+  await logActivity({
+    action: "social.connected_demo",
+    targetType: "social_account",
+    targetId: accountId,
+    metadata: { platform, isDemo: true },
+  });
+
+  revalidatePath("/social-channels");
+  return { ok: true, accountId, isDemo: true };
+}
+
+export async function disconnectSocialChannel(input: {
+  platform: string;
+  accountId: string;
+}): Promise<{ ok: boolean; reason?: string }> {
+  const userId = await getActorId();
+  if (!userId) return { ok: false, reason: "Not signed in" };
+
+  const workspaceId = await getCurrentWorkspaceId();
+  await db
+    .delete(schema.socialAccounts)
+    .where(
+      and(
+        eq(schema.socialAccounts.workspaceId, workspaceId),
+        eq(schema.socialAccounts.platform, input.platform),
+        eq(schema.socialAccounts.accountId, input.accountId)
+      )
+    )
+    .run();
+
+  await logActivity({
+    action: "social.disconnected",
+    targetType: "social_account",
+    targetId: input.accountId,
+    metadata: { platform: input.platform },
+  });
+
+  revalidatePath("/social-channels");
+  return { ok: true };
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
