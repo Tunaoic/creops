@@ -13,6 +13,7 @@ import {
   Inbox,
   Bell,
   BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
@@ -29,6 +30,7 @@ export interface SidebarLabels {
   topics: string;
   board: string;
   calendar: string;
+  performance: string;
   socialChannels: string;
   search: string;
   settings: string;
@@ -76,6 +78,12 @@ export function SidebarClient({
   ];
 
   const INSIGHTS = [
+    {
+      href: "/performance",
+      label: labels.performance,
+      icon: TrendingUp,
+      hint: "G P",
+    },
     {
       href: "/social-channels",
       label: labels.socialChannels,

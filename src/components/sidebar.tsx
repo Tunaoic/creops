@@ -28,6 +28,7 @@ export async function Sidebar() {
         topics: tr("nav_topics"),
         board: tr("nav_board"),
         calendar: tr("nav_calendar"),
+        performance: tr("nav_performance"),
         socialChannels: tr("nav_social_channels"),
         search: tr("nav_search"),
         settings: tr("nav_settings"),

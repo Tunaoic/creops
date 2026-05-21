@@ -37,6 +37,7 @@ export const dict = {
   nav_topics: { en: "Topics", vi: "Chủ đề" },
   nav_board: { en: "Board", vi: "Bảng" },
   nav_calendar: { en: "Calendar", vi: "Lịch" },
+  nav_performance: { en: "Performance", vi: "Hiệu suất" },
   nav_social_channels: { en: "Social channels", vi: "Kênh social" },
   nav_search: { en: "Search", vi: "Tìm kiếm" },
   nav_settings: { en: "Settings", vi: "Cài đặt" },
