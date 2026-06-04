@@ -211,7 +211,7 @@ export function NotificationsBell({
 
           <div className="px-4 py-2.5 border-t border-border text-center">
             <Link
-              href="/notifications"
+              href="/inbox?tab=activity"
               onClick={() => setOpen(false)}
               className="text-[13px] text-accent hover:opacity-80 transition-opacity"
             >

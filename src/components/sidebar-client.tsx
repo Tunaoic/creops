@@ -11,7 +11,6 @@ import {
   LayoutGrid,
   CalendarDays,
   Inbox,
-  Bell,
   BarChart3,
   TrendingUp,
 } from "lucide-react";
@@ -26,12 +25,11 @@ export interface SidebarLabels {
   tools: string;
   dashboard: string;
   inbox: string;
-  notifications: string;
   topics: string;
   board: string;
   calendar: string;
   performance: string;
-  socialChannels: string;
+  connections: string;
   search: string;
   settings: string;
   newTopic: string;
@@ -57,13 +55,10 @@ export function SidebarClient({
       icon: LayoutDashboard,
       hint: "G D",
     },
+    // Inbox subsumes the old /notifications route as a tab — single
+    // surface for "things waiting on you". Notifications bell in the
+    // topbar still surfaces realtime activity.
     { href: "/inbox", label: labels.inbox, icon: Inbox, hint: "G I" },
-    {
-      href: "/notifications",
-      label: labels.notifications,
-      icon: Bell,
-      hint: "G N",
-    },
   ];
 
   const VIEWS = [
@@ -85,10 +80,10 @@ export function SidebarClient({
       hint: "G P",
     },
     {
-      href: "/social-channels",
-      label: labels.socialChannels,
+      href: "/connections",
+      label: labels.connections,
       icon: BarChart3,
-      hint: "G S",
+      hint: "G C",
     },
   ];
 

@@ -33,12 +33,11 @@ export const dict = {
   // Sidebar nav items
   nav_dashboard: { en: "Dashboard", vi: "Tổng quan" },
   nav_inbox: { en: "Inbox", vi: "Hộp đến" },
-  nav_notifications: { en: "Notifications", vi: "Thông báo" },
   nav_topics: { en: "Topics", vi: "Chủ đề" },
   nav_board: { en: "Board", vi: "Bảng" },
   nav_calendar: { en: "Calendar", vi: "Lịch" },
   nav_performance: { en: "Performance", vi: "Hiệu suất" },
-  nav_social_channels: { en: "Social channels", vi: "Kênh social" },
+  nav_connections: { en: "Connections", vi: "Kết nối" },
   nav_search: { en: "Search", vi: "Tìm kiếm" },
   nav_settings: { en: "Settings", vi: "Cài đặt" },
   new_topic: { en: "New Topic", vi: "Chủ đề mới" },

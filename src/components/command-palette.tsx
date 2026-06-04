@@ -81,9 +81,19 @@ export function CommandPalette({ topics }: { topics: Topic[] }) {
                     hint="⌘B"
                   />
                   <Item
-                    onSelect={() => go("/timeline")}
+                    onSelect={() => go("/calendar")}
                     icon={<Calendar className="w-3.5 h-3.5" />}
-                    label="Open timeline view"
+                    label="Open calendar"
+                  />
+                  <Item
+                    onSelect={() => go("/performance")}
+                    icon={<LayoutGrid className="w-3.5 h-3.5" />}
+                    label="Open performance dashboard"
+                  />
+                  <Item
+                    onSelect={() => go("/connections")}
+                    icon={<LayoutGrid className="w-3.5 h-3.5" />}
+                    label="Manage connections"
                   />
                   <Item
                     onSelect={() => go("/settings")}

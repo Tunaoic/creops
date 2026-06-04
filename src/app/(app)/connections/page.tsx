@@ -1,11 +1,13 @@
 import { getSocialAccounts } from "@/db/queries";
-import { SocialChannelsClient } from "@/components/social-channels-client";
+import { ConnectionsClient } from "@/components/connections-client";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Social channels — workspace's connected platform accounts for
- * performance reporting.
+ * Connections — workspace's connected platform accounts for
+ * performance reporting. Renamed from /social-channels in the
+ * architecture cleanup pass to disambiguate from /settings/channels
+ * (publishing destination types).
  *
  * Phase 3a (this page): UI shell. Lists existing connections (empty
  * by default), shows 4 platform cards (YouTube enabled, others
@@ -17,7 +19,7 @@ export const dynamic = "force-dynamic";
  * Phase 3c: Vercel cron → pull metrics for aired deliverables.
  * Phase 3d: Aggregate report dashboard.
  */
-export default async function SocialChannelsPage() {
+export default async function ConnectionsPage() {
   const accounts = await getSocialAccounts();
-  return <SocialChannelsClient accounts={accounts} />;
+  return <ConnectionsClient accounts={accounts} />;
 }

@@ -95,11 +95,11 @@ export function PerformanceClient({
             Connect a channel to see your real numbers here.
           </div>
           <Link
-            href="/social-channels"
+            href="/connections"
             className="inline-flex items-center gap-1.5 text-[13px] font-medium text-warn-text hover:underline shrink-0"
           >
             <Plug className="w-3.5 h-3.5" strokeWidth={2} />
-            Connect a channel
+            Connect a platform
           </Link>
         </div>
       )}

@@ -16,12 +16,12 @@ import { isClerkEnabled } from "@/lib/auth-config";
  * Authed app shell — wraps every route that requires the dashboard chrome.
  *
  * Routes covered:
- *   /dashboard, /inbox, /notifications, /topics/*, /board, /calendar,
- *   /timeline, /search, /settings/*
+ *   /dashboard, /inbox, /topics/*, /board, /calendar,
+ *   /performance, /connections, /search, /settings/*
  *
- * Public routes (/, /sign-in, /sign-up, /onboarding) bypass this layout
- * by living outside the (app) route group — they get the minimal root
- * layout only.
+ * Public routes (/, /sign-in, /sign-up, /onboarding, /welcome) bypass
+ * this layout by living outside the (app) route group — they get the
+ * minimal root layout only.
  */
 export default async function AppLayout({
   children,

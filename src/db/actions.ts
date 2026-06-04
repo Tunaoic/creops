@@ -1181,7 +1181,7 @@ export async function markNotificationRead(notificationId: string): Promise<void
     .where(eq(schema.notifications.id, notificationId))
     .run();
   revalidatePath("/", "layout");
-  revalidatePath("/notifications");
+  revalidatePath("/inbox");
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
@@ -1197,7 +1197,7 @@ export async function markAllNotificationsRead(): Promise<void> {
     )
     .run();
   revalidatePath("/", "layout");
-  revalidatePath("/notifications");
+  revalidatePath("/inbox");
 }
 
 // ============================================================================
@@ -2285,7 +2285,7 @@ export async function connectSocialChannel(input: {
     metadata: { platform, isDemo: true },
   });
 
-  revalidatePath("/social-channels");
+  revalidatePath("/connections");
   return { ok: true, accountId, isDemo: true };
 }
 
@@ -2315,7 +2315,7 @@ export async function disconnectSocialChannel(input: {
     metadata: { platform: input.platform },
   });
 
-  revalidatePath("/social-channels");
+  revalidatePath("/connections");
   return { ok: true };
 }
 

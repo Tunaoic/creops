@@ -34,26 +34,20 @@ export function TopBar({
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
 
-  // Build breadcrumb labels
+  // Build breadcrumb labels.
+  // Lookup order:
+  //   1. STATIC_LABELS — well-known segments (sentence-cased nice names)
+  //   2. topicNames map — for dynamic /topics/[id] segments
+  //   3. titleCase fallback — covers any future segment without code edit
+  // The fallback keeps URLs like /connections rendering as "Connections"
+  // even if someone forgets to add a static label.
   const crumbs: Array<{ label: string; href: string }> = [];
   let acc = "";
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     acc += `/${seg}`;
-    let label = seg;
-    if (seg === "topics") label = "Topics";
-    else if (seg === "settings") label = "Settings";
-    else if (seg === "search") label = "Search";
-    else if (seg === "board") label = "Board";
-    else if (seg === "calendar") label = "Calendar";
-    else if (seg === "timeline") label = "Timeline";
-    else if (seg === "members") label = "Members";
-    else if (seg === "inbox") label = "Inbox";
-    else if (seg === "new") label = "New";
-    else if (seg === "tasks") label = "Tasks";
-    else if (seg === "approve") label = "Approve";
-    else if (seg === "channels") label = "Channels";
-    else if (topicNames[seg]) label = topicNames[seg];
+    const label =
+      STATIC_LABELS[seg] ?? topicNames[seg] ?? titleCase(seg);
     crumbs.push({ label, href: acc });
   }
 
@@ -121,4 +115,45 @@ export function TopBar({
       </div>
     </header>
   );
+}
+
+/**
+ * Friendly labels for URL segments. Keep this list small — anything
+ * missing falls through to titleCase() which handles most cases.
+ * Only override when the auto-cased label would be wrong or ugly
+ * (e.g. acronyms, kept-lowercase product names).
+ *
+ * Add to i18n if a label needs translation. Right now breadcrumbs are
+ * English-only — the user's stated audience reads English nav fine
+ * in VI mode too. Revisit when we go multi-language at the segment
+ * level.
+ */
+const STATIC_LABELS: Record<string, string> = {
+  // Top-level nav (sentence case)
+  dashboard: "Dashboard",
+  inbox: "Inbox",
+  topics: "Topics",
+  board: "Board",
+  calendar: "Calendar",
+  performance: "Performance",
+  connections: "Connections",
+  search: "Search",
+  settings: "Settings",
+  welcome: "Welcome",
+  onboarding: "Onboarding",
+  // Nested
+  members: "Members",
+  workspaces: "Workspaces",
+  channels: "Channels",
+  tasks: "Tasks",
+  approve: "Approve",
+  new: "New",
+  join: "Join",
+};
+
+function titleCase(seg: string): string {
+  if (!seg) return seg;
+  // Strip URL-encoded chars; replace hyphens with spaces; cap first letter
+  const cleaned = decodeURIComponent(seg).replace(/-/g, " ");
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }

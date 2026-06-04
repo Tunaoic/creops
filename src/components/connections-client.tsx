@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
  *
  * No metrics yet — Phase 3c brings those.
  */
-export function SocialChannelsClient({
+export function ConnectionsClient({
   accounts,
 }: {
   accounts: SocialAccount[];
@@ -75,7 +75,7 @@ export function SocialChannelsClient({
                 className="w-6 h-6 text-text-muted"
                 strokeWidth={1.5}
               />
-              Social channels
+              Connections
             </h1>
             <p className="text-[14px] text-text-muted mt-1 max-w-2xl">
               Connect the platforms where you publish so CreOps can pull
