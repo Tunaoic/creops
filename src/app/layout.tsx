@@ -30,11 +30,26 @@ export default async function RootLayout({
   // from localStorage. Prevents flash of wrong theme on reload.
   const themeBootstrap = `(function(){try{var t=localStorage.getItem('cowork-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t)}else{document.documentElement.setAttribute('data-theme','dark')}}catch(e){}})();`;
 
+  // Plausible analytics — only loaded when the domain is configured in
+  // env. No-op locally / during development. Privacy-friendly: no
+  // cookies, no cross-site tracking — see /privacy page.
+  const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN?.trim();
+  const plausibleSrc =
+    process.env.NEXT_PUBLIC_PLAUSIBLE_SRC?.trim() ||
+    "https://plausible.io/js/script.js";
+
   return (
     <ClerkAwareProvider clerkEnabled={clerkOn}>
       <html lang={locale} data-theme="dark" suppressHydrationWarning>
         <head>
           <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+          {plausibleDomain && (
+            <script
+              defer
+              data-domain={plausibleDomain}
+              src={plausibleSrc}
+            />
+          )}
         </head>
         <body className="min-h-screen">
           {children}

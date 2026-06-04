@@ -30,6 +30,8 @@ export default async function proxy(req: NextRequest) {
 
   const isPublicRoute = createRouteMatcher([
     "/",                  // marketing landing
+    "/privacy",           // legal — must be reachable by anyone
+    "/terms",             // legal — same
     "/sign-in(.*)",
     "/sign-up(.*)",
     "/api/webhooks(.*)",
